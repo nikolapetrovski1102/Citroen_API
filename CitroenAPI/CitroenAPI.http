@@ -1,6 +1,6 @@
 @CitroenAPI_HostAddress = http://localhost:5216
 
-GET {{CitroenAPI_HostAddress}}/weatherforecast/
+GET {{CitroenAPI_HostAddress}}/CitroenApi/
 Accept: application/json
 
 ###
