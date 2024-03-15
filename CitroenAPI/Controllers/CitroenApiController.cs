@@ -25,9 +25,17 @@ namespace CitroenAPI.Controllers
         {
             try
             {
-                string certificateFilePath = "D:/GitHub/Citroen_API/CitroenAPI/Certificate/MZPDFMAP.cer";
-                string certificatePassword = "D:/GitHub/Citroen_API/CitroenAPI/Certificate/MZPDFMAP.pk"; // If the certificate is password-protected
+                string certificateFilePath = @".\..\Certificate\MZPDFMAP.cer";
+                string certificatePassword = @".\..\Certificate\MZPDFMAP.pk"; // If the certificate is password-protected
 
+
+          
+
+                // Current working directory
+             //   string currentDirectory = Environment.CurrentDirectory;
+
+                // Combine current directory and relative path to get the absolute path
+              //  string absolutePath = System.IO.Path.Combine(currentDirectory, relativePath);
 
 
                 X509Certificate2 clientCertificate = GetCert(certificateFilePath, certificatePassword);
