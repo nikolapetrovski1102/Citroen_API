@@ -18,6 +18,7 @@ using System.Net;
 using static System.Net.HttpListener;
 using Newtonsoft.Json;
 using System.Text.Json.Nodes;
+using System.Data.Common;
 
 
 
@@ -29,6 +30,12 @@ namespace CitroenAPI.Controllers
     [ApiController]
     public class CitroenApiController : ControllerBase
     {
+        private readonly CitroenDbContext _context;
+
+        public CitroenApiController(CitroenDbContext context)
+        {
+            _context = context;
+        }
 
         HttpListener.ExtendedProtectionSelector ExtendedProtectionSelector { get; set; }
         static X509Certificate2 clientCertificate;
@@ -87,8 +94,7 @@ namespace CitroenAPI.Controllers
         {
             //https://api-secure.forms.awsmpsa.com/formsv3/api/leads
 
-
-            var resp = new CitroenApiController().Get().Result;
+            var resp = Get().Result;
             var handler = new HttpClientHandler();
             handler.ClientCertificates.Add(clientCertificate);
             using (var httpClient = new HttpClient(new HttpLoggingHandler(handler)))
@@ -125,9 +131,14 @@ namespace CitroenAPI.Controllers
 
                     RootObject responseData=JsonConvert.DeserializeObject<RootObject>(responseBody);
 
+                    Logs logs = new Logs();
+
                     foreach(Message msg in responseData.message)
                     {
-                       await PostAsync(msg.leadData);
+                        await PostAsync(msg.leadData);
+                        logs.GitId = msg.gitId;
+                        logs.DispatchDate = msg.dispatchDate;
+                        await AddLog(logs);
                     }
 
 
@@ -142,6 +153,48 @@ namespace CitroenAPI.Controllers
 
         }
 
+        [HttpPost("AddLog")]
+        public async Task AddLog (Logs logModel)
+        {
+
+            if (!CheckLogs(logModel))
+            {
+                try
+                {
+                    _context.Logs.Add(logModel);
+
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbException ex)
+                {
+                    throw new Exception(ex.Message);
+                }
+            }
+            else
+            {
+                return;
+            }
+
+        }
+
+        bool CheckLogs(Logs logsModel)
+        {
+            if (logsModel == null)
+            {
+                return false;
+            }
+
+            var res = _context.Logs.Where(model => model.GitId.Equals(logsModel.GitId)
+                                                    && model.DispatchDate.Equals(logsModel.DispatchDate));
+
+            if (res == null)
+            {
+                return false;
+            }
+            else
+                return true;
+
+        }
 
         [HttpPost("SalesForce")]
         public async Task PostAsync(LeadData data)
