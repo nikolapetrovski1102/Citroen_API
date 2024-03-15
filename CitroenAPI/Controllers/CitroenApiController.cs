@@ -25,20 +25,21 @@ namespace CitroenAPI.Controllers
         {
             try
             {
-                string certificateFilePath = @".\..\Certificate\MZPDFMAP.cer";
-                string certificatePassword = @".\..\Certificate\MZPDFMAP.pk"; // If the certificate is password-protected
+                string certificateFilePath = @".\Certificate\MZPDFMAP.cer";
+                string certificatePassword = @".\Certificate\MZPDFMAP.pk"; // If the certificate is password-protected
 
 
           
 
                 // Current working directory
-             //   string currentDirectory = Environment.CurrentDirectory;
+               string currentDirectory = Environment.CurrentDirectory;
 
                 // Combine current directory and relative path to get the absolute path
-              //  string absolutePath = System.IO.Path.Combine(currentDirectory, relativePath);
+               string absolutePath = System.IO.Path.Combine(currentDirectory, certificateFilePath);
+                string absolutePathKEY= System.IO.Path.Combine(currentDirectory, certificatePassword);
 
 
-                X509Certificate2 clientCertificate = GetCert(certificateFilePath, certificatePassword);
+                X509Certificate2 clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
 
                 var handler = new HttpClientHandler();
                 handler.ClientCertificates.Add(clientCertificate);
