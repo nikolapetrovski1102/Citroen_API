@@ -17,6 +17,7 @@ using System.Net.Http.Headers;
 using System.Net;
 using static System.Net.HttpListener;
 using Newtonsoft.Json;
+using System.Text.Json.Nodes;
 
 
 
@@ -120,6 +121,17 @@ namespace CitroenAPI.Controllers
                     response.EnsureSuccessStatusCode();
 
                     string responseBody = await response.Content.ReadAsStringAsync();
+
+
+                    RootObject responseData=JsonConvert.DeserializeObject<RootObject>(responseBody);
+
+                    foreach(Message msg in responseData.message)
+                    {
+                       await PostAsync(msg.leadData);
+                    }
+
+
+
                     return responseBody.ToString();
                 }
                 catch (HttpRequestException e)
@@ -130,8 +142,28 @@ namespace CitroenAPI.Controllers
 
         }
 
-    // PUT api/<ValuesController>/5
-    [HttpPut("{id}")]
+
+        [HttpPost("SalesForce")]
+        public async Task PostAsync(LeadData data)
+        {
+            string xlink = "https://webto.salesforce.com/servlet/servlet.WebToLead?eencoding=UTF-8&orgId=00D7Q000004shjs&salutation=Mr.&first_name=" + data.customer.firstname
+                + "&last_name=" + data.customer.lastname +
+                "&email=" + data.customer.email +
+                "&phone=" + data.customer.personalMobilePhone +
+                "&submit=submit&oid=00D7Q000004shjs&retURL=";
+            var client = new HttpClient(new HttpLoggingHandler());
+            var request = new HttpRequestMessage(HttpMethod.Post, xlink);
+            request.Headers.Add("Cookie", "BrowserId=asdasdasdasdasda");
+            var response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            Console.WriteLine(await response.Content.ReadAsStringAsync());
+        }
+
+
+
+
+        // PUT api/<ValuesController>/5
+        [HttpPut("{id}")]
         public void Put(int id, [FromBody] string value)
         {
         }
