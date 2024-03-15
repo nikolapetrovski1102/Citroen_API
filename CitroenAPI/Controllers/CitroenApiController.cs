@@ -30,9 +30,9 @@ namespace CitroenAPI.Controllers
     {
 
         HttpListener.ExtendedProtectionSelector ExtendedProtectionSelector { get; set; }
-
-        // GET: api/<ValuesController>
-        [HttpGet]
+        static X509Certificate2 clientCertificate;
+      // GET: api/<ValuesController>
+      [HttpGet]
         public async Task<string> Get()
         {
             try
@@ -45,7 +45,7 @@ namespace CitroenAPI.Controllers
                 string absolutePath = System.IO.Path.Combine(currentDirectory, certificateFilePath);
                 string absolutePathKEY= System.IO.Path.Combine(currentDirectory, certificatePassword);
 
-                X509Certificate2 clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
+                clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
 
                 var handler = new HttpClientHandler();
                 handler.ClientCertificates.Add(clientCertificate);
@@ -86,7 +86,11 @@ namespace CitroenAPI.Controllers
         {
             //https://api-secure.forms.awsmpsa.com/formsv3/api/leads
 
-            using (var httpClient = new HttpClient())
+
+            var resp = new CitroenApiController().Get().Result;
+            var handler = new HttpClientHandler();
+            handler.ClientCertificates.Add(clientCertificate);
+            using (var httpClient = new HttpClient(new HttpLoggingHandler(handler)))
             {
                 try
                 {
@@ -102,11 +106,11 @@ namespace CitroenAPI.Controllers
 
                     string jsonDate = JsonConvert.SerializeObject(dateRange);
 
-                    var resp = new CitroenApiController().Get().Result;
+           
 
                     TokenAuth tokenObject = JsonConvert.DeserializeObject<TokenAuth>(resp);
                     var content = new StringContent(jsonDate, Encoding.UTF8, "application/json");
-                    AuthenticationHeaderValue authHeader = new AuthenticationHeaderValue("Bearer", tokenObject.access_token);
+                    AuthenticationHeaderValue authHeader = new AuthenticationHeaderValue("Authorization", "Bearer "+tokenObject.access_token);
 
                     httpClient.DefaultRequestHeaders.Add("User-Agent", "YourUserAgent");
                     httpClient.DefaultRequestHeaders.Authorization = authHeader;
