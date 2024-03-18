@@ -15,7 +15,7 @@ public class CitroenDbContext : DbContext
     public virtual DbSet<Logs> Logs { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    => optionsBuilder.UseSqlServer("Data Source=(local);Initial Catalog=CitroenApi;Integrated security=true;TrustServerCertificate=True;Trusted_Connection=True;");
+    => optionsBuilder.UseSqlServer("Data Source=SQL5053.site4now.net;Initial Catalog=db_a056d0_cyberlink;User Id=db_a056d0_cyberlink_admin;Password=Citroen_api2024");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

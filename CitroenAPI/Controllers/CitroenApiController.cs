@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿/*using Microsoft.AspNetCore.Mvc;
 using ReptilApp.Api;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -24,7 +24,7 @@ using static CitroenAPI.Models.Enums;
 
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-
+/*
 namespace CitroenAPI.Controllers
 {
     [Route("api/[controller]")]
@@ -210,10 +210,10 @@ namespace CitroenAPI.Controllers
                 "&submit=submit&oid=00D7Q000004shjs&retURL=" +
                 "&00N7Q00000KWlx2=" + data.requestType +
                 "&lead_source=www.citroen.com.mk" +
-                "&description=" + data.interestProduct.description+
-                "&00N7Q00000KWlx7="+ prefered+
-                "&00N7Q00000KWlxC=" +data.interestProduct.model +
-                "&00N7Q00000KWlxH=TrebaInformacija"//Fali data;
+                "&description=" + data.interestProduct.description +
+                "&00N7Q00000KWlx7=" + prefered +
+                "&00N7Q00000KWlxC=" + data.interestProduct.model +
+                "&00N7Q00000KWlxH=TrebaInformacija";//Fali data;
 
 
 
