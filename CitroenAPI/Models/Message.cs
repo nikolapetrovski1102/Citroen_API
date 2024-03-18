@@ -1,4 +1,6 @@
-﻿namespace CitroenAPI.Models
+﻿using static CitroenAPI.Models.Enums;
+
+namespace CitroenAPI.Models
 {
     public class Message
     {
@@ -10,5 +12,6 @@
         public string applicationSourceCode { get; set; }
         public string applicationSourceName { get; set; }
         public LeadData leadData { get; set; }
+        public PreferredContactMethodEnum preferredContactMethod { get; set; }
     }
 }
