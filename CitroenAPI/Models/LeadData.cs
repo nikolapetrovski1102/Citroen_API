@@ -1,19 +1,20 @@
 ﻿namespace CitroenAPI.Models
 {
-    public class LeadData
+    public class LeadData : Enums
     {
-        public string leadType { get; set; }
+
+        public LeadTypeEnum leadType { get; set; }
         public string leadLabel { get; set; }
-        public string deviceType { get; set; }
+        public DeviceTypeEnum deviceType { get; set; }
         public string gaClientId { get; set; }
         public string userAgent { get; set; }
-        public string requestType { get; set; }
-        public string customerType { get; set; }
-        public string brand { get; set; }
+        public RequestTypeEnum requestType { get; set; }
+        public CustomerTypeEnum customerType { get; set; }
+        public BrandEnum brand { get; set; }
         public string country { get; set; }
         public string language { get; set; }
         public string isOMNI { get; set; }
-        public string activity { get; set; }
+        public ActivityEnum activity { get; set; }
         public string marketingCode { get; set; }
         public Customer customer { get; set; }
         public InterestProduct interestProduct { get; set; }

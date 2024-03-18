@@ -1,8 +1,8 @@
 ﻿namespace CitroenAPI.Models
 {
-    public class Consent
+    public class Consent : Enums
     {
-        public string consentName { get; set; }
+        public ConsentNameEnum consentName { get; set; }
         public bool consentValue { get; set; }
     }
 }

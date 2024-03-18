@@ -19,6 +19,7 @@ using static System.Net.HttpListener;
 using Newtonsoft.Json;
 using System.Text.Json.Nodes;
 using System.Data.Common;
+using System.Reflection.Metadata;
 
 
 
@@ -135,6 +136,8 @@ namespace CitroenAPI.Controllers
 
                     foreach(Message msg in responseData.message)
                     {
+                        var brand = Enums.GetEnumValue(msg.leadData.brand);
+                        var leadType = msg.leadData.leadType;
                         await PostAsync(msg.leadData);
                         logs.GitId = msg.gitId;
                         logs.DispatchDate = msg.dispatchDate;

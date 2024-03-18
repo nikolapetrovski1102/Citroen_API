@@ -1,8 +1,8 @@
 ﻿namespace CitroenAPI.Models
 {
-    public class Customer
+    public class Customer : Enums
     {
-        public string civility { get; set; }
+        public CivilityEnum civility { get; set; }
         public string firstname { get; set; }
         public string lastname { get; set; }
         public string email { get; set; }
