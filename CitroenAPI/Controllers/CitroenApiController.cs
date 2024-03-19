@@ -145,9 +145,7 @@ namespace CitroenAPI.Controllers
 
                     foreach (Message msg in responseData.message)
                     {
-                        var brand = Enums.GetEnumValue(msg.leadData.brand);
-                        var leadType = msg.leadData.leadType;
-                        await PostAsync(msg.leadData, msg.preferredContactMethod);
+                        //await PostAsync(msg.leadData, msg.preferredContactMethod);
                         logs.GitId = msg.gitId;
                         logs.DispatchDate = msg.dispatchDate;
                         await AddLog(logs);
@@ -196,7 +194,7 @@ namespace CitroenAPI.Controllers
                 return false;
             }
 
-            var res = _context.Logs.Where(model => model.GitId.Equals(logsModel.GitId)
+            Logs res = _context.Logs.FirstOrDefault(model => model.GitId.Equals(logsModel.GitId)
                                                     && model.DispatchDate.Equals(logsModel.DispatchDate));
 
             if (res == null)
@@ -211,18 +209,8 @@ namespace CitroenAPI.Controllers
         [HttpPost("SalesForce")]
         public async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered)
         {
-
-
-
-            
-
             string salutation = data.customer.civility==null ? "--None--": String.IsNullOrEmpty(Enums.GetEnumValue(data.customer.civility)) ? "--None-- " : Enums.GetEnumValue(data.customer.civility);
-
-
             string requestType = data.requestType==null? "--None--":String.IsNullOrEmpty(Enums.GetEnumValue(data.requestType)) ? "--None-- " : Enums.GetEnumValue(data.requestType);
-
-
-
 
             string url = "https://webto.salesforce.com/servlet/servlet.WebToLead?eencoding=UTF-8&orgId=00D7Q000004shjs" +
                 "&salutation=" + salutation +
@@ -248,16 +236,5 @@ namespace CitroenAPI.Controllers
             Console.WriteLine(await response.Content.ReadAsStringAsync());
         }
 
-        // PUT api/<ValuesController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
-        {
-        }
-
-        // DELETE api/<ValuesController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
-        }
     }
 }
