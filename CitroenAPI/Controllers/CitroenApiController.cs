@@ -145,10 +145,16 @@ namespace CitroenAPI.Controllers
 
                     foreach (Message msg in responseData.message)
                     {
-                        //await PostAsync(msg.leadData, msg.preferredContactMethod);
+
+
+                       
                         logs.GitId = msg.gitId;
                         logs.DispatchDate = msg.dispatchDate;
-                        await AddLog(logs);
+                        bool inserted =await AddLog(logs);
+                        if(inserted)
+                            await PostAsync(msg.leadData, msg.preferredContactMethod);
+
+                        //Kodot za logika od baza ? dali veke postoi
                     }
 
 
@@ -164,7 +170,7 @@ namespace CitroenAPI.Controllers
         }
 
         [HttpPost("AddLog")]
-        public async Task AddLog(Logs logModel)
+        public async Task<bool> AddLog(Logs logModel)
         {
 
             if (CheckLogs(logModel))
@@ -174,15 +180,18 @@ namespace CitroenAPI.Controllers
                     _context.Logs.Add(logModel);
 
                     await _context.SaveChangesAsync();
+                    return true;
                 }
                 catch (DbException ex)
                 {
                     throw new Exception(ex.Message);
+                    return false;
                 }
+              
             }
             else
             {
-                return;
+                return false;
             }
 
         }
