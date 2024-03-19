@@ -20,6 +20,7 @@ using Newtonsoft.Json;
 using System.Text.Json.Nodes;
 using System.Data.Common;
 using System.Reflection.Metadata;
+using static CitroenAPI.Models.Enums;
 
 
 
@@ -146,7 +147,7 @@ namespace CitroenAPI.Controllers
                     {
                         var brand = Enums.GetEnumValue(msg.leadData.brand);
                         var leadType = msg.leadData.leadType;
-                        await PostAsync(msg.leadData);
+                        await PostAsync(msg.leadData, msg.preferredContactMethod);
                         logs.GitId = msg.gitId;
                         logs.DispatchDate = msg.dispatchDate;
                         await AddLog(logs);
@@ -208,23 +209,26 @@ namespace CitroenAPI.Controllers
         }
 
         [HttpPost("SalesForce")]
-        public async Task PostAsync(LeadData data)
+        public async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered)
         {
-            string xlink = "https://webto.salesforce.com/servlet/servlet.WebToLead?eencoding=UTF-8&orgId=00D7Q000004shjs&salutation=Mr.&first_name=" + data.customer.firstname
-                + "&last_name=" + data.customer.lastname +
+
+            string url = "https://webto.salesforce.com/servlet/servlet.WebToLead?eencoding=UTF-8&orgId=00D7Q000004shjs" +
+                "&salutation=" + data.customer.civility +
+                "&first_name=" + data.customer.firstname +
+                "&last_name=" + data.customer.lastname +
                 "&email=" + data.customer.email +
-                "&phone=" + data.customer.personalMobilePhone +
-                "&submit=submit&oid=00D7Q000004shjs&retURL=";
-            var client = new HttpClient(new HttpLoggingHandler());
-            var request = new HttpRequestMessage(HttpMethod.Post, xlink);
-            request.Headers.Add("Cookie", "BrowserId=asdasdasdasdasda");
-            var response = await client.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-            Console.WriteLine(await response.Content.ReadAsStringAsync());
+                "&mobile=" + data.customer.personalMobilePhone +
+                "&submit=submit&oid=00D7Q000004shjs&retURL=" +
+                "&00N7Q00000KWlx2=" + data.requestType +
+                "&lead_source=www.citroen.com.mk" +
+                "&description=" + data.interestProduct.description +
+                "&00N7Q00000KWlx7=" + prefered +
+                "&00N7Q00000KWlxC=" + data.interestProduct.model +
+                "&00N7Q00000KWlxH=TrebaInformacija";//Fali data;
+
+                var client = new HttpClient();
+                var request = new HttpRequestMessage(HttpMethod.Post, url);
         }
-
-
-
 
         // PUT api/<ValuesController>/5
         [HttpPut("{id}")]
