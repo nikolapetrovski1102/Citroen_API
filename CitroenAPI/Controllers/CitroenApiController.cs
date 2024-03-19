@@ -145,9 +145,6 @@ namespace CitroenAPI.Controllers
 
                     foreach (Message msg in responseData.message)
                     {
-
-
-                       
                         logs.GitId = msg.gitId;
                         logs.DispatchDate = msg.dispatchDate;
                         bool inserted =await AddLog(logs);
@@ -156,8 +153,6 @@ namespace CitroenAPI.Controllers
 
                         //Kodot za logika od baza ? dali veke postoi
                     }
-
-
 
                     return response.StatusCode.ToString();
                 }
@@ -237,7 +232,6 @@ namespace CitroenAPI.Controllers
 
                 var client = new HttpClient();
                 var request = new HttpRequestMessage(HttpMethod.Post, url);
-
 
             request.Headers.Add("Cookie", "BrowserId=asdasdasdasdasda");
             var response = await client.SendAsync(request);
