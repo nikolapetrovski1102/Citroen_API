@@ -2,24 +2,15 @@
 using ReptilApp.Api;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.IO;
-using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.X509;
-
 using CitroenAPI.Models;
-using System.Text.Json;
 using System.Text;
-using static System.Net.WebRequestMethods;
 using System.Net.Http.Headers;
 using System.Net;
-using static System.Net.HttpListener;
 using Newtonsoft.Json;
-using System.Text.Json.Nodes;
 using System.Data.Common;
-using System.Reflection.Metadata;
 using static CitroenAPI.Models.Enums;
 
 
@@ -45,9 +36,10 @@ namespace CitroenAPI.Controllers
 
         HttpListener.ExtendedProtectionSelector ExtendedProtectionSelector { get; set; }
         static X509Certificate2 clientCertificate;
+        protected string SHA1Password = "b5267c1e130ec85238d12a4e5f2c85a1b185f7b7";
         // GET: api/<ValuesController>
         [HttpGet]
-        public async Task<string> Get()
+        private async Task<string> Get()
         {
             try
             {
@@ -102,9 +94,13 @@ namespace CitroenAPI.Controllers
         [HttpPost]
         public async Task<string> Post()
         {
-            //https://api-secure.forms.awsmpsa.com/formsv3/api/leads
+            var auth = HttpContext.Request.Headers.Authorization;
 
-            var resp = Get().Result;
+            if (auth != SHA1Password)
+            {
+                return BadRequest().ToString();
+            }
+
             var handler = new HttpClientHandler();
             handler.ClientCertificates.Add(clientCertificate);
             using (var httpClient = new HttpClient(new HttpLoggingHandler(handler)))
@@ -123,9 +119,7 @@ namespace CitroenAPI.Controllers
 
                     string jsonDate = JsonConvert.SerializeObject(dateRange);
 
-
-
-                    TokenAuth tokenObject = JsonConvert.DeserializeObject<TokenAuth>(resp);
+                    TokenAuth tokenObject = JsonConvert.DeserializeObject<TokenAuth>(Get().Result);
                     var content = new StringContent(jsonDate, Encoding.UTF8, "application/json");
                     AuthenticationHeaderValue authHeader = new AuthenticationHeaderValue("Authorization", "Bearer " + tokenObject.access_token);
 
@@ -238,6 +232,6 @@ namespace CitroenAPI.Controllers
             response.EnsureSuccessStatusCode();
             Console.WriteLine(await response.Content.ReadAsStringAsync());
         }
-
+        
     }
 }
