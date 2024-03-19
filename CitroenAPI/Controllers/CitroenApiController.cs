@@ -168,7 +168,7 @@ namespace CitroenAPI.Controllers
         public async Task AddLog(Logs logModel)
         {
 
-            if (!CheckLogs(logModel))
+            if (CheckLogs(logModel))
             {
                 try
                 {
@@ -200,10 +200,10 @@ namespace CitroenAPI.Controllers
 
             if (res == null)
             {
-                return false;
+                return true;
             }
             else
-                return true;
+                return false;
 
         }
 

@@ -9,3 +9,4 @@
         public string vehPickupTime { get; set; }
         public List<string> serviceTypes { get; set; }
     }
+}
