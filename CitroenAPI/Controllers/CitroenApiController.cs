@@ -22,7 +22,6 @@ using System.Data.Common;
 using System.Reflection.Metadata;
 
 
-
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace CitroenAPI.Controllers
@@ -32,16 +31,20 @@ namespace CitroenAPI.Controllers
     public class CitroenApiController : ControllerBase
     {
         private readonly CitroenDbContext _context;
+        private readonly IWebHostEnvironment _hostingEnvironment;
+        string absolutePath;
+        string absolutePathKEY;
 
-        public CitroenApiController(CitroenDbContext context)
+        public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment)
         {
             _context = context;
+            _hostingEnvironment = hostingEnvironment;
         }
 
         HttpListener.ExtendedProtectionSelector ExtendedProtectionSelector { get; set; }
         static X509Certificate2 clientCertificate;
-      // GET: api/<ValuesController>
-      [HttpGet]
+        // GET: api/<ValuesController>
+        [HttpGet]
         public async Task<string> Get()
         {
             try
@@ -49,10 +52,14 @@ namespace CitroenAPI.Controllers
                 string certificateFilePath = @".\Certificate\MZPDFMAP.cer";
                 string certificatePassword = @".\Certificate\MZPDFMAP.pk"; // If the certificate is password-protected
 
-                string currentDirectory = Environment.CurrentDirectory;
+                certificateFilePath = certificateFilePath.Replace(".\\", "");
+                certificatePassword = certificatePassword.Replace(".\\", "");
 
-                string absolutePath = System.IO.Path.Combine(currentDirectory, certificateFilePath);
-                string absolutePathKEY= System.IO.Path.Combine(currentDirectory, certificatePassword);
+                string currentDirectory = Environment.CurrentDirectory;
+                //string appDataFolderPath = System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data");
+
+                absolutePath = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificateFilePath);
+                absolutePathKEY = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificatePassword);
 
                 clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
 
@@ -73,11 +80,11 @@ namespace CitroenAPI.Controllers
             }
             catch (Exception ex)
             {
-                return null;
+                return ex.Message + " looking folder for: " + absolutePath;
 
             }
         }
-      
+
         private X509Certificate2 GetCert(string certPath, string keyPath)
         {
             X509Certificate2 cert = new X509Certificate2(certPath);
@@ -114,15 +121,15 @@ namespace CitroenAPI.Controllers
 
                     string jsonDate = JsonConvert.SerializeObject(dateRange);
 
-           
+
 
                     TokenAuth tokenObject = JsonConvert.DeserializeObject<TokenAuth>(resp);
                     var content = new StringContent(jsonDate, Encoding.UTF8, "application/json");
-                    AuthenticationHeaderValue authHeader = new AuthenticationHeaderValue("Authorization", "Bearer "+tokenObject.access_token);
+                    AuthenticationHeaderValue authHeader = new AuthenticationHeaderValue("Authorization", "Bearer " + tokenObject.access_token);
 
                     httpClient.DefaultRequestHeaders.Add("User-Agent", "YourUserAgent");
                     httpClient.DefaultRequestHeaders.Authorization = authHeader;
-                    
+
                     var response = await httpClient.PostAsync("https://api-secure.forms.awsmpsa.com/formsv3/api/leads", content);
 
                     response.EnsureSuccessStatusCode();
@@ -130,11 +137,11 @@ namespace CitroenAPI.Controllers
                     string responseBody = await response.Content.ReadAsStringAsync();
 
 
-                    RootObject responseData=JsonConvert.DeserializeObject<RootObject>(responseBody);
+                    RootObject responseData = JsonConvert.DeserializeObject<RootObject>(responseBody);
 
                     Logs logs = new Logs();
 
-                    foreach(Message msg in responseData.message)
+                    foreach (Message msg in responseData.message)
                     {
                         var brand = Enums.GetEnumValue(msg.leadData.brand);
                         var leadType = msg.leadData.leadType;
@@ -157,7 +164,7 @@ namespace CitroenAPI.Controllers
         }
 
         [HttpPost("AddLog")]
-        public async Task AddLog (Logs logModel)
+        public async Task AddLog(Logs logModel)
         {
 
             if (!CheckLogs(logModel))
