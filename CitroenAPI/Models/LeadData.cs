@@ -10,6 +10,7 @@
         public string userAgent { get; set; }
         public RequestTypeEnum requestType { get; set; }
         public CustomerTypeEnum customerType { get; set; }
+        public Customer customer { get; set; }
         public BrandEnum brand { get; set; }
         public string country { get; set; }
         public string language { get; set; }
