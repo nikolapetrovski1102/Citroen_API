@@ -155,7 +155,7 @@ namespace CitroenAPI.Controllers
 
 
 
-                    return responseBody.ToString();
+                    return response.StatusCode.ToString();
                 }
                 catch (HttpRequestException e)
                 {
@@ -212,14 +212,26 @@ namespace CitroenAPI.Controllers
         public async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered)
         {
 
+
+
+            
+
+            string salutation = data.customer.civility==null ? "--None--": String.IsNullOrEmpty(Enums.GetEnumValue(data.customer.civility)) ? "--None-- " : Enums.GetEnumValue(data.customer.civility);
+
+
+            string requestType = data.requestType==null? "--None--":String.IsNullOrEmpty(Enums.GetEnumValue(data.requestType)) ? "--None-- " : Enums.GetEnumValue(data.requestType);
+
+
+
+
             string url = "https://webto.salesforce.com/servlet/servlet.WebToLead?eencoding=UTF-8&orgId=00D7Q000004shjs" +
-                "&salutation=" + data.customer.civility +
+                "&salutation=" + salutation +
                 "&first_name=" + data.customer.firstname +
                 "&last_name=" + data.customer.lastname +
                 "&email=" + data.customer.email +
                 "&mobile=" + data.customer.personalMobilePhone +
                 "&submit=submit&oid=00D7Q000004shjs&retURL=" +
-                "&00N7Q00000KWlx2=" + data.requestType +
+                "&00N7Q00000KWlx2=" + requestType +
                 "&lead_source=www.citroen.com.mk" +
                 "&description=" + data.interestProduct.description +
                 "&00N7Q00000KWlx7=" + prefered +
@@ -228,6 +240,12 @@ namespace CitroenAPI.Controllers
 
                 var client = new HttpClient();
                 var request = new HttpRequestMessage(HttpMethod.Post, url);
+
+
+            request.Headers.Add("Cookie", "BrowserId=asdasdasdasdasda");
+            var response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            Console.WriteLine(await response.Content.ReadAsStringAsync());
         }
 
         // PUT api/<ValuesController>/5

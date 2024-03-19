@@ -146,13 +146,15 @@ namespace CitroenAPI.Models
 
         public enum RequestTypeEnum
         {
-            [EnumStringValue("TESTDRIVE")]
+            [EnumStringValue("--None--")]
+            None=0,
+            [EnumStringValue("Test Drive")]
             TestDrive = 1,
-            [EnumStringValue("OFFER")]
+            [EnumStringValue("Request Offer")]
             Offer = 2,
             [EnumStringValue("BROCHURE")]
             Brochure = 3,
-            [EnumStringValue("CONTACT")]
+            [EnumStringValue("Contact Forms")]
             Contact = 4,
             [EnumStringValue("APPOINTMENT")]
             Appointment = 6,
@@ -160,7 +162,7 @@ namespace CitroenAPI.Models
             AfterSales = 7,
             [EnumStringValue("VN - CONTACT_PREACCEPT_POSITIVE")]
             VNContactPreAcceptPositive = 8,
-            [EnumStringValue("PRELEAD")]
+            [EnumStringValue("Prelead – keep me informed")]
             PreLead = 10,
             [EnumStringValue("Contact Finance")]
             ContactFinance = 12,
@@ -216,18 +218,27 @@ namespace CitroenAPI.Models
 
         public enum CivilityEnum
         {
-            [EnumStringValue("MR")]
+            [EnumStringValue("--None--")]
+            None=0,
+            [EnumStringValue("Mr.")]
             MR = 1,
-            [EnumStringValue("MRS")]
+            [EnumStringValue("Mrs.")]
             MRS = 2,
-            [EnumStringValue("MISS")]
+            [EnumStringValue("Miss.")]
             MISS = 3,
-            [EnumStringValue("MS")]
-            MS = 4
+            [EnumStringValue("Ms.")]
+            MS = 4,
+            [EnumStringValue("Dr.")]
+            DR=5,
+            [EnumStringValue("Prof.")]
+            PROF=6
+
         }
 
         public enum PurchaseIntentionPeriodEnum
         {
+            [EnumStringValue("--None--")]
+            None=0,
             [EnumStringValue("less than 3 months")]
             LessThan3Months = 1,
             [EnumStringValue("between 3 & 6 months")]
