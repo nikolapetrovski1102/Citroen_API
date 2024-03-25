@@ -36,7 +36,6 @@ namespace CitroenAPI.Controllers
 
         HttpListener.ExtendedProtectionSelector ExtendedProtectionSelector { get; set; }
         static X509Certificate2 clientCertificate;
-        protected string SHA1Password = "b5267c1e130ec85238d12a4e5f2c85a1b185f7b7";
         // GET: api/<ValuesController>
         [HttpGet]
         private async Task<string> Get()
@@ -50,7 +49,6 @@ namespace CitroenAPI.Controllers
                 certificatePassword = certificatePassword.Replace(".\\", "");
 
                 string currentDirectory = Environment.CurrentDirectory;
-                //string appDataFolderPath = System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data");
 
                 absolutePath = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificateFilePath);
                 absolutePathKEY = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificatePassword);
@@ -94,14 +92,8 @@ namespace CitroenAPI.Controllers
         [HttpPost]
         public async Task<string> Post()
         {
-            var auth = HttpContext.Request.Headers.Authorization;
-
-            if (auth != SHA1Password)
-            {
-                return BadRequest().ToString();
-            }
-
             var handler = new HttpClientHandler();
+            var resp = Get().Result;
             handler.ClientCertificates.Add(clientCertificate);
             using (var httpClient = new HttpClient(new HttpLoggingHandler(handler)))
             {
@@ -119,7 +111,7 @@ namespace CitroenAPI.Controllers
 
                     string jsonDate = JsonConvert.SerializeObject(dateRange);
 
-                    TokenAuth tokenObject = JsonConvert.DeserializeObject<TokenAuth>(Get().Result);
+                    TokenAuth tokenObject = JsonConvert.DeserializeObject<TokenAuth>(resp);
                     var content = new StringContent(jsonDate, Encoding.UTF8, "application/json");
                     AuthenticationHeaderValue authHeader = new AuthenticationHeaderValue("Authorization", "Bearer " + tokenObject.access_token);
 
@@ -128,10 +120,12 @@ namespace CitroenAPI.Controllers
 
                     var response = await httpClient.PostAsync("https://api-secure.forms.awsmpsa.com/formsv3/api/leads", content);
 
-                    response.EnsureSuccessStatusCode();
-
                     string responseBody = await response.Content.ReadAsStringAsync();
 
+                    if (response.StatusCode == HttpStatusCode.NotFound) 
+                    {
+                        return "No new leads";
+                    }
 
                     RootObject responseData = JsonConvert.DeserializeObject<RootObject>(responseBody);
 
@@ -192,8 +186,7 @@ namespace CitroenAPI.Controllers
                 return false;
             }
 
-            Logs res = _context.Logs.FirstOrDefault(model => model.GitId.Equals(logsModel.GitId)
-                                                    && model.DispatchDate.Equals(logsModel.DispatchDate));
+            Logs res = _context.Logs.FirstOrDefault(model => model.GitId.Equals(logsModel.GitId));
 
             if (res == null)
             {
