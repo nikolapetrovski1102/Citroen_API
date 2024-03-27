@@ -32,6 +32,7 @@ namespace CitroenAPI.Controllers
         int callLimit = 0;
         private Timer timer;
 
+     
         public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment)
         {
             _context = context;
@@ -149,11 +150,11 @@ namespace CitroenAPI.Controllers
 
                     }
 
-                    DateTime now = DateTime.Now;
-                    DateTime nextExecution = now.AddHours(1);
-                    TimeSpan delay = nextExecution - now;
+                   // DateTime now = DateTime.Now;
+                   // DateTime nextExecution = now.AddHours(1);
+                  //  TimeSpan delay = nextExecution - now;
 
-                    int delayMilliseconds = (int)delay.TotalMilliseconds;
+                   // int delayMilliseconds = (int)delay.TotalMilliseconds;
 
                     ApiCalls apiCalls = new ApiCalls();
 
@@ -170,9 +171,9 @@ namespace CitroenAPI.Controllers
                         Console.WriteLine(ex.Message);
                     }
 
-                    await Task.Delay(delayMilliseconds);
+               //     await Task.Delay(delayMilliseconds);
 
-                    await Post();
+                   ///  Post();
 
                     return response.StatusCode.ToString();
                 }
