@@ -12,6 +12,8 @@ using System.Net;
 using Newtonsoft.Json;
 using System.Data.Common;
 using static CitroenAPI.Models.Enums;
+using CitroenAPI.Models.DbContextModels;
+using CitroenAPI.Models;
 
 
 
@@ -27,6 +29,8 @@ namespace CitroenAPI.Controllers
         private readonly IWebHostEnvironment _hostingEnvironment;
         string absolutePath;
         string absolutePathKEY;
+        int callLimit = 0;
+        private Timer timer;
 
         public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment)
         {
@@ -101,7 +105,7 @@ namespace CitroenAPI.Controllers
                 {
                     DateTime date = DateTime.Now;
 
-                    DateTime sevenDays = date.AddDays(-7);
+                    DateTime sevenDays = date.AddDays(-2);
 
                     var dateRange = new
                     {
@@ -135,12 +139,40 @@ namespace CitroenAPI.Controllers
                     {
                         logs.GitId = msg.gitId;
                         logs.DispatchDate = msg.dispatchDate;
-                        bool inserted =await AddLog(logs);
-                        if(inserted)
+                        logs.CreatedDate = DateTime.Now;
+                        bool inserted = await AddLog(logs);
+                        if (inserted)
+                        {
+                            msg.leadData.gitId = msg.gitId;
                             await PostAsync(msg.leadData, msg.preferredContactMethod);
+                        }
 
-                        //Kodot za logika od baza ? dali veke postoi
                     }
+
+                    DateTime now = DateTime.Now;
+                    DateTime nextExecution = now.AddHours(1);
+                    TimeSpan delay = nextExecution - now;
+
+                    int delayMilliseconds = (int)delay.TotalMilliseconds;
+
+                    ApiCalls apiCalls = new ApiCalls();
+
+                    apiCalls.CallDateTime = DateTime.Now;
+                    apiCalls.Status = response.StatusCode.ToString();
+
+                    try
+                    {
+                        _context.ApiCalls.Add(apiCalls);
+                        await _context.SaveChangesAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+
+                    await Task.Delay(delayMilliseconds);
+
+                    await Post();
 
                     return response.StatusCode.ToString();
                 }
@@ -153,7 +185,7 @@ namespace CitroenAPI.Controllers
         }
 
         [HttpPost("AddLog")]
-        public async Task<bool> AddLog(Logs logModel)
+        private async Task<bool> AddLog(Logs logModel)
         {
 
             if (CheckLogs(logModel))
@@ -168,7 +200,6 @@ namespace CitroenAPI.Controllers
                 catch (DbException ex)
                 {
                     throw new Exception(ex.Message);
-                    return false;
                 }
               
             }
@@ -198,33 +229,118 @@ namespace CitroenAPI.Controllers
         }
 
         [HttpPost("SalesForce")]
-        public async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered)
+        private async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered)
         {
-            string salutation = data.customer.civility==null ? "--None--": String.IsNullOrEmpty(Enums.GetEnumValue(data.customer.civility)) ? "--None-- " : Enums.GetEnumValue(data.customer.civility);
-            string requestType = data.requestType==null? "--None--":String.IsNullOrEmpty(Enums.GetEnumValue(data.requestType)) ? "--None-- " : Enums.GetEnumValue(data.requestType);
+            StatusLeads sl = new StatusLeads();
+            try
+            {
+                string salutation = data.customer.civility == null ? "--None--" : String.IsNullOrEmpty(Enums.GetEnumValue(data.customer.civility)) ? "--None-- " : Enums.GetEnumValue(data.customer.civility);
+                string requestType = data.requestType == null ? "--None--" : String.IsNullOrEmpty(Enums.GetEnumValue(data.requestType)) ? "--None-- " : Enums.GetEnumValue(data.requestType);
+                string description = data.interestProduct == null ? "--None--" : String.IsNullOrEmpty(data.interestProduct.description) ? "no desctiption defined" : data.interestProduct.description;
+                string model = data.interestProduct == null ? "--None--" : String.IsNullOrEmpty(data.interestProduct.model) ? "no model defined" : data.interestProduct.model;
+                string dealers = data.dealers.Count == 0 ? "--None--" : String.IsNullOrEmpty(data.dealers[0].geoSiteCode) ? "no dealer defined" : data.dealers[0].geoSiteCode;
+                string mobilePhone = data.customer.personalMobilePhone == null ? "" : String.IsNullOrEmpty(data.customer.personalMobilePhone) ? "" : data.customer.personalMobilePhone;
 
-            string url = "https://webto.salesforce.com/servlet/servlet.WebToLead?eencoding=UTF-8&orgId=00D7Q000004shjs" +
-                "&salutation=" + salutation +
-                "&first_name=" + data.customer.firstname +
-                "&last_name=" + data.customer.lastname +
-                "&email=" + data.customer.email +
-                "&mobile=" + data.customer.personalMobilePhone +
-                "&submit=submit&oid=00D7Q000004shjs&retURL=" +
-                "&00N7Q00000KWlx2=" + requestType +
-                "&lead_source=www.citroen.com.mk" +
-                "&description=" + data.interestProduct.description +
-                "&00N7Q00000KWlx7=" + prefered +
-                "&00N7Q00000KWlxC=" + data.interestProduct.model +
-                "&00N7Q00000KWlxH=TrebaInformacija";//Fali data;
+                string url = "https://webto.salesforce.com/servlet/servlet.WebToLead?eencoding=UTF-8&orgId=00D7Q000004shjs" +
+                    "&salutation=" + salutation +
+                    "&first_name=" + data.customer.firstname +
+                    "&last_name=" + data.customer.lastname +
+                    "&email=" + data.customer.email +
+                    "&mobile=" + mobilePhone +
+                    "&submit=submit&oid=00D7Q000004shjs&retURL=" +
+                    "&00N7Q00000KWlx2=" + requestType +
+                    "&lead_source=www.citroen.com.mk" +
+                    "&description=" + description +
+                    "&00N7Q00000KWlx7=" + prefered +
+                    "&00N7Q00000KWlxC=" + model +
+                    "&00N7Q00000KWlxH=" + dealers;
 
                 var client = new HttpClient();
                 var request = new HttpRequestMessage(HttpMethod.Post, url);
 
-            request.Headers.Add("Cookie", "BrowserId=asdasdasdasdasda");
-            var response = await client.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-            Console.WriteLine(await response.Content.ReadAsStringAsync());
+                request.Headers.Add("Cookie", "BrowserId=asdasdasdasdasda");
+                var response = await client.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+                
+                sl.GitId = data.gitId;
+                sl.Status = 200;
+                sl.SentDate = DateTime.Now;
+
+                _context.StatusLeads.Add(sl);
+
+                _context.SaveChanges();
+
+                callLimit = 0;
+
+            }
+            catch (Exception ex)
+            {
+                if (ex.InnerException != null && callLimit < 3 && ex.InnerException.Message.Contains("No such host is known."))
+                {
+                    callLimit++;
+                    PostAsync(data, prefered);
+                }
+
+                sl.GitId = data.gitId;
+                sl.Status = 500;
+                sl.SentDate = DateTime.Now;
+
+                _context.StatusLeads.Add(sl);
+
+                _context.SaveChanges();
+
+            }
         }
-        
+
+        //[HttpPost]
+        //public async Task CallFunction()
+        //{
+        //    if (timer != null)
+        //    {
+        //        return;
+        //    }
+
+        //    try
+        //    {
+        //        DateTime now = DateTime.Now;
+        //        DateTime nextExecution = now.AddMinutes(1);
+        //        TimeSpan delay = nextExecution - now;
+
+        //        int delayMilliseconds = (int)delay.TotalMilliseconds;
+
+        //        await Task.Delay(delayMilliseconds);
+
+        //        var res = "";
+        //        ApiCalls apiCalls = new ApiCalls();
+
+        //        try
+        //        {
+        //            await Post();
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            Console.Write(ex.Message);
+        //            res = HttpStatusCode.InternalServerError.ToString();
+        //        }
+
+        //        apiCalls.CallDateTime = DateTime.Now;
+        //        apiCalls.Status = res;
+
+        //        try
+        //        {
+        //            _context.ApiCalls.Add(apiCalls);
+        //            await _context.SaveChangesAsync();
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            Console.Write(ex.Message);
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine("Error setting up timer: " + ex.Message);
+        //    }
+
+        //}
     }
 }

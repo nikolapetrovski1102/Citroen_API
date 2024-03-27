@@ -1,4 +1,6 @@
-using CitroenAPI.Models;
+using CitroenAPI;
+using CitroenAPI.Models.DbContextModels;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,12 +20,8 @@ var app = builder.Build();
 
 app.UseStaticFiles();
 
-// Configure the HTTP request pipeline.
-//if (app.Environment.IsDevelopment())
-//{
 app.UseSwagger();
 app.UseSwaggerUI();
-//}
 
 app.UseAuthorization();
 

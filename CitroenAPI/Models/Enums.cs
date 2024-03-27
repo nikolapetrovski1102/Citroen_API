@@ -21,14 +21,14 @@ namespace CitroenAPI.Models
         {
             Type enumType = typeof(T);
             FieldInfo fieldInfo = enumType.GetField(enumValue.ToString());
-            var attribute = fieldInfo.GetCustomAttribute<EnumStringValueAttribute>();
+            var attribute = fieldInfo?.GetCustomAttribute<EnumStringValueAttribute>();
             if (attribute != null)
             {
                 return attribute.Value;
             }
             else
             {
-                throw new InvalidOperationException($"EnumStringValueAttribute not found for {enumValue.ToString()}.");
+                return "--None--";
             }
         }
 
@@ -152,68 +152,10 @@ namespace CitroenAPI.Models
             TestDrive = 1,
             [EnumStringValue("Request Offer")]
             Offer = 2,
-            [EnumStringValue("BROCHURE")]
-            Brochure = 3,
             [EnumStringValue("Contact Forms")]
             Contact = 4,
-            [EnumStringValue("APPOINTMENT")]
-            Appointment = 6,
-            [EnumStringValue("AFTERSALES")]
-            AfterSales = 7,
-            [EnumStringValue("VN - CONTACT_PREACCEPT_POSITIVE")]
-            VNContactPreAcceptPositive = 8,
             [EnumStringValue("Prelead – keep me informed")]
             PreLead = 10,
-            [EnumStringValue("Contact Finance")]
-            ContactFinance = 12,
-            [EnumStringValue("VO - Information request")]
-            VOInformationRequest = 13,
-            [EnumStringValue("Reservation request")]
-            ReservationRequest = 14,
-            [EnumStringValue("Buyback request")]
-            BuybackRequest = 15,
-            [EnumStringValue("APV - Quote Request")]
-            APVQuoteRequest = 32,
-            [EnumStringValue("NDVO")]
-            NDVO = 33,
-            [EnumStringValue("NDVO finance")]
-            NDVOFinance = 38,
-            [EnumStringValue("Quote for Motability")]
-            QuoteForMotability = 40,
-            [EnumStringValue("VN - ONLINE_SALE_STOCK")]
-            VNOnlineSaleStock = 45,
-            [EnumStringValue("VO - VN Trade-In Operation")]
-            VOVNTradeInOperation = 47,
-            [EnumStringValue("CONFIG")]
-            Config = 48,
-            [EnumStringValue("VO - Trade-In Only Request")]
-            VOTradeInOnlyRequest = 58,
-            [EnumStringValue("F2ML offre")]
-            F2MLOffer = 60,
-            [EnumStringValue("F2ML contact")]
-            F2MLContact = 61,
-            [EnumStringValue("F2ML solution")]
-            F2MLSolution = 62,
-            [EnumStringValue("VO - Reserved with fingerprint")]
-            VOReservedWithFingerprint = 68,
-            [EnumStringValue("ONLINE SALE ON CONFIGURATION")]
-            OnlineSaleOnConfiguration = 71,
-            [EnumStringValue("SUBSCRIBE NL")]
-            SubscribeNL = 73,
-            [EnumStringValue("Request for quote due VO unavailability")]
-            RequestForQuoteDueVOUnavailability = 77,
-            [EnumStringValue("Request for reservation of a used vehicle")]
-            RequestForReservationOfAUsedVehicle = 79,
-            [EnumStringValue("E-SELLER")]
-            ESeller = 102,
-            [EnumStringValue("OTHERS")]
-            Others = 200,
-            [EnumStringValue("Test drive for Motability")]
-            TestDriveForMotability = 301,
-            [EnumStringValue("lead de commande en ligne (SPOTICAR)")]
-            LeadDeCommandeEnLigneSPOTICAR = 59,
-            [EnumStringValue("lead de commande en ligne (SPOTICAR)")]
-            LeadDeCommandeEnLigneSPOTICAR_A74 = 74
         }
 
         public enum CivilityEnum
