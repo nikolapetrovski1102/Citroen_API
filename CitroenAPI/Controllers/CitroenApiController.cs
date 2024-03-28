@@ -236,7 +236,7 @@ namespace CitroenAPI.Controllers
             try
             {
                 string salutation = data.customer.civility == null ? "--None--" : String.IsNullOrEmpty(Enums.GetEnumValue(data.customer.civility)) ? "--None-- " : Enums.GetEnumValue(data.customer.civility);
-                string requestType = data.requestType == null ? "--None--" : String.IsNullOrEmpty(Enums.GetEnumValue(data.requestType)) ? "--None-- " : Enums.GetEnumValue(data.requestType);
+                string requestType = data.requestType == null ? "" : String.IsNullOrEmpty(Enums.GetEnumValue(data.requestType)) ? "" : Enums.GetEnumValue(data.requestType);
                 string description = data.interestProduct == null ? "--None--" : String.IsNullOrEmpty(data.interestProduct.description) ? "no desctiption defined" : data.interestProduct.description;
                 string model = data.interestProduct == null ? "--None--" : String.IsNullOrEmpty(data.interestProduct.model) ? "no model defined" : data.interestProduct.model;
                 string dealers = data.dealers.Count == 0 ? "--None--" : String.IsNullOrEmpty(data.dealers[0].geoSiteCode) ? "no dealer defined" : data.dealers[0].geoSiteCode;

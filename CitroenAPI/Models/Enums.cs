@@ -154,6 +154,8 @@ namespace CitroenAPI.Models
             Offer = 2,
             [EnumStringValue("Contact Forms")]
             Contact = 4,
+            [EnumStringValue("Newsletter")]
+            NewsLetter=5,
             [EnumStringValue("Prelead – keep me informed")]
             PreLead = 10,
         }
