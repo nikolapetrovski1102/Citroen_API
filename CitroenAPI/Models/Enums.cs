@@ -28,7 +28,7 @@ namespace CitroenAPI.Models
             }
             else
             {
-                return "--None--";
+                return "";
             }
         }
 

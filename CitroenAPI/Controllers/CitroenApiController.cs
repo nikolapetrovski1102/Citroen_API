@@ -104,9 +104,9 @@ namespace CitroenAPI.Controllers
             {
                 try
                 {
-                    DateTime date = DateTime.Now;
+                    DateTime date = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
 
-                    DateTime sevenDays = date.AddDays(-2);
+                    DateTime sevenDays = date.AddDays(-3);
 
                     var dateRange = new
                     {
@@ -150,15 +150,11 @@ namespace CitroenAPI.Controllers
 
                     }
 
-                   // DateTime now = DateTime.Now;
-                   // DateTime nextExecution = now.AddHours(1);
-                  //  TimeSpan delay = nextExecution - now;
-
-                   // int delayMilliseconds = (int)delay.TotalMilliseconds;
-
                     ApiCalls apiCalls = new ApiCalls();
 
-                    apiCalls.CallDateTime = DateTime.Now;
+                    DateTime dateTimeNow = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
+
+                    apiCalls.CallDateTime = dateTimeNow;
                     apiCalls.Status = response.StatusCode.ToString();
 
                     try
@@ -170,10 +166,6 @@ namespace CitroenAPI.Controllers
                     {
                         Console.WriteLine(ex.Message);
                     }
-
-               //     await Task.Delay(delayMilliseconds);
-
-                   ///  Post();
 
                     return response.StatusCode.ToString();
                 }
