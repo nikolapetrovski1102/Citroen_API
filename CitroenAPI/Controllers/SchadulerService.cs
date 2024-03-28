@@ -3,6 +3,7 @@ using CitroenAPI.Models.DbContextModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics;
 
 namespace CitroenAPI.Controllers
 {
@@ -32,12 +33,24 @@ namespace CitroenAPI.Controllers
 
         private async void RunAgain(object? state)
         {
+            try
+            {
+                var client = new HttpClient();
+                HttpRequestMessage request;
+                if (!Debugger.IsAttached)
+                    request = new HttpRequestMessage(HttpMethod.Post, "https://cyberlink-001-site29.anytempurl.com/api/CitroenApi");
+                else
+                    request = new HttpRequestMessage(HttpMethod.Post, "http://localhost:5216/api/CitroenApi");
+                request.Headers.Add("password", "b5267c1e130ec85238d12a4e5f2c85a1b185f7b7");
+                var response = await client.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+                Console.WriteLine(await response.Content.ReadAsStringAsync());
+            }
+            catch (Exception ex)
+            {
 
-            var client = new HttpClient();
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://cyberlink-001-site29.anytempurl.com/api/CitroenApi");
-            var response = await client.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-           
+            }
+
 
         }
 
