@@ -22,7 +22,7 @@ namespace CitroenAPI.Controllers
         }
         public void Dispose()
         {
-            throw new NotImplementedException();
+           // throw new NotImplementedException();
         }
 
         public Task StartAsync(CancellationToken cancellationToken)

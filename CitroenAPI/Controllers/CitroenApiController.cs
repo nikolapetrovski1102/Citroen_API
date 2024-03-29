@@ -97,6 +97,7 @@ namespace CitroenAPI.Controllers
         [HttpPost]
         public async Task<string> Post()
         {
+           
             var handler = new HttpClientHandler();
             var resp = Get().Result;
             handler.ClientCertificates.Add(clientCertificate);
@@ -165,9 +166,15 @@ namespace CitroenAPI.Controllers
                     catch (Exception ex)
                     {
                         Console.WriteLine(ex.Message);
+                        apiCalls.Status = ex.Message;
+                        try
+                        {
+                            _context.ApiCalls.Add(apiCalls);
+                            await _context.SaveChangesAsync();
+                        }
+                        catch {  }
                     }
-
-                    return response.StatusCode.ToString();
+                   return response.StatusCode.ToString();
                 }
                 catch (HttpRequestException e)
                 {
