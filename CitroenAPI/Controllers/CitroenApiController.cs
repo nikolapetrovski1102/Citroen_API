@@ -153,13 +153,14 @@ namespace CitroenAPI.Controllers
 
                     ApiCalls apiCalls = new ApiCalls();
 
-                    DateTime dateTimeNow = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
-
-                    apiCalls.CallDateTime = dateTimeNow;
+                    DateTime dateTimeNow;
+                 
                     apiCalls.Status = response.StatusCode.ToString();
 
                     try
                     {
+                        dateTimeNow = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
+                        apiCalls.CallDateTime = dateTimeNow;
                         _context.ApiCalls.Add(apiCalls);
                         await _context.SaveChangesAsync();
                     }
@@ -169,6 +170,8 @@ namespace CitroenAPI.Controllers
                         apiCalls.Status = ex.Message;
                         try
                         {
+                            dateTimeNow = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
+                            apiCalls.CallDateTime = dateTimeNow;
                             _context.ApiCalls.Add(apiCalls);
                             await _context.SaveChangesAsync();
                         }

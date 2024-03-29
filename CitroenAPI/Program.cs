@@ -18,7 +18,7 @@ builder.Services.AddDbContext<CitroenDbContext>(options =>
 
 builder.Services.AddHostedService<SchadulerService>();
 
-        var app = builder.Build();
+var app = builder.Build();
 
 app.UseStaticFiles();
 
