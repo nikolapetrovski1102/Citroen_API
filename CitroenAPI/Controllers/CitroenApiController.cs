@@ -148,7 +148,6 @@ namespace CitroenAPI.Controllers
                             msg.leadData.gitId = msg.gitId;
                             await PostAsync(msg.leadData, msg.preferredContactMethod);
                         }
-
                     }
 
                     ApiCalls apiCalls = new ApiCalls();
@@ -175,7 +174,10 @@ namespace CitroenAPI.Controllers
                             _context.ApiCalls.Add(apiCalls);
                             await _context.SaveChangesAsync();
                         }
-                        catch {  }
+                        catch (Exception exception) 
+                        {
+                            Console.WriteLine(exception.Message);
+                        }   
                     }
                    return response.StatusCode.ToString();
                 }
@@ -238,11 +240,30 @@ namespace CitroenAPI.Controllers
             try
             {
                 string salutation = data.customer.civility == null ? "--None--" : String.IsNullOrEmpty(Enums.GetEnumValue(data.customer.civility)) ? "--None-- " : Enums.GetEnumValue(data.customer.civility);
-                string requestType = data.requestType == null ? "" : String.IsNullOrEmpty(Enums.GetEnumValue(data.requestType)) ? "" : Enums.GetEnumValue(data.requestType);
-                string description = data.interestProduct == null ? "--None--" : String.IsNullOrEmpty(data.interestProduct.description) ? "no desctiption defined" : data.interestProduct.description;
-                string model = data.interestProduct == null ? "--None--" : String.IsNullOrEmpty(data.interestProduct.model) ? "no model defined" : data.interestProduct.model;
-                string dealers = data.dealers.Count == 0 ? "--None--" : String.IsNullOrEmpty(data.dealers[0].geoSiteCode) ? "no dealer defined" : data.dealers[0].geoSiteCode;
+                string requestType = data.requestType == null ? "--None--" : String.IsNullOrEmpty(Enums.GetEnumValue(data.requestType)) ? "--None--" : Enums.GetEnumValue(data.requestType);
+                string commetns = data.comments == null ? "" : String.IsNullOrEmpty(data.comments) ? "" : data.comments;
+                string model = data.interestProduct == null ? "--None--" : String.IsNullOrEmpty(data.interestProduct.model) ? "" : data.interestProduct.model;
+                string dealers = data.dealers.Count == 0 ? "" : String.IsNullOrEmpty(data.dealers[0].geoSiteCode) ? "" : data.dealers[0].geoSiteCode;
                 string mobilePhone = data.customer.personalMobilePhone == null ? "" : String.IsNullOrEmpty(data.customer.personalMobilePhone) ? "" : data.customer.personalMobilePhone;
+                string consents = String.Empty;
+
+                if (data.consents.Count > 0)
+                {
+                    foreach (var consent in data.consents)
+                    {
+                        if (consent.consentValue.Equals(true))
+                        {
+                            consents += Enums.GetEnumValue(consent.consentName).ToString() + ", ";
+                        }
+                    }
+
+                    consents = consents.TrimEnd(',', ' ');
+
+                }
+                else
+                {
+                    consents = "";
+                }
 
                 string url = "https://webto.salesforce.com/servlet/servlet.WebToLead?eencoding=UTF-8&orgId=00D7Q000004shjs" +
                     "&salutation=" + salutation +
@@ -253,8 +274,8 @@ namespace CitroenAPI.Controllers
                     "&submit=submit&oid=00D7Q000004shjs&retURL=" +
                     "&00N7Q00000KWlx2=" + requestType +
                     "&lead_source=www.citroen.com.mk" +
-                    "&description=" + description +
-                    "&00N7Q00000KWlx7=" + prefered +
+                    "&description=" + commetns +
+                    "&00N7Q00000KWlx7=" + consents +
                     "&00N7Q00000KWlxC=" + model +
                     "&00N7Q00000KWlxH=" + dealers;
 
@@ -294,56 +315,5 @@ namespace CitroenAPI.Controllers
 
             }
         }
-
-        //[HttpPost]
-        //public async Task CallFunction()
-        //{
-        //    if (timer != null)
-        //    {
-        //        return;
-        //    }
-
-        //    try
-        //    {
-        //        DateTime now = DateTime.Now;
-        //        DateTime nextExecution = now.AddMinutes(1);
-        //        TimeSpan delay = nextExecution - now;
-
-        //        int delayMilliseconds = (int)delay.TotalMilliseconds;
-
-        //        await Task.Delay(delayMilliseconds);
-
-        //        var res = "";
-        //        ApiCalls apiCalls = new ApiCalls();
-
-        //        try
-        //        {
-        //            await Post();
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            Console.Write(ex.Message);
-        //            res = HttpStatusCode.InternalServerError.ToString();
-        //        }
-
-        //        apiCalls.CallDateTime = DateTime.Now;
-        //        apiCalls.Status = res;
-
-        //        try
-        //        {
-        //            _context.ApiCalls.Add(apiCalls);
-        //            await _context.SaveChangesAsync();
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            Console.Write(ex.Message);
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Console.WriteLine("Error setting up timer: " + ex.Message);
-        //    }
-
-        //}
     }
 }
