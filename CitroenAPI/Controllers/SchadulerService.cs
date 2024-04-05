@@ -10,15 +10,17 @@ namespace CitroenAPI.Controllers
     public class SchadulerService : IHostedService, IDisposable
     {
         private Timer _timerForNext;
+        private readonly CitroenDbContext _context;
         public IConfiguration _configuration { get; set; }
         private IServiceScopeFactory _scopeFactory;
         private Microsoft.AspNetCore.Hosting.IHostingEnvironment _environment;
-        public SchadulerService(IServiceScopeFactory serviceScopeFactory, Microsoft.AspNetCore.Hosting.IHostingEnvironment environment, IConfiguration configuration)
+        public SchadulerService(IServiceScopeFactory serviceScopeFactory,
+            Microsoft.AspNetCore.Hosting.IHostingEnvironment environment, IConfiguration configuration, CitroenDbContext context)
         {
             _scopeFactory = serviceScopeFactory;
             _environment = environment;
             _configuration = configuration;
-
+            _context = context;
         }
         public void Dispose()
         {
@@ -27,7 +29,7 @@ namespace CitroenAPI.Controllers
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            _timerForNext = new Timer(RunAgain, null, TimeSpan.Zero, TimeSpan.FromHours(1));
+            _timerForNext = new Timer(RunAgain, null, TimeSpan.Zero, TimeSpan.FromMinutes(10));
             return Task.CompletedTask;
         }
 
@@ -45,10 +47,31 @@ namespace CitroenAPI.Controllers
                 var response = await client.SendAsync(request);
                 response.EnsureSuccessStatusCode();
                 Console.WriteLine(await response.Content.ReadAsStringAsync());
+
+                ApiCalls apiCalls = new ApiCalls();
+
+                DateTime dateTimeNow;
+
+                dateTimeNow = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
+                apiCalls.Status = response.StatusCode.ToString();
+                apiCalls.CallDateTime = dateTimeNow;
+
+                try
+                {
+                    _context.ApiCalls.Add(apiCalls);
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception ex) {
+                    apiCalls.Status = ex.Message.ToString();
+                    _context.ApiCalls.Add(apiCalls);
+
+                    await _context.SaveChangesAsync();
+                }
+
             }
             catch (Exception ex)
             {
-
+                Console.WriteLine(ex.ToString());
             }
 
 

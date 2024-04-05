@@ -1,5 +1,6 @@
 using CitroenAPI;
 using CitroenAPI.Controllers;
+using CitroenAPI.Models;
 using CitroenAPI.Models.DbContextModels;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
@@ -14,9 +15,9 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<CitroenDbContext>(options =>
-    options.UseSqlServer(configuration["ConnectionStrings:ConnectionString"].ToString()), ServiceLifetime.Transient);
+    options.UseSqlServer(configuration["ConnectionStrings:ConnectionString"].ToString()), ServiceLifetime.Singleton);
 
-builder.Services.AddHostedService<SchadulerService>();
+builder.Services.AddSingleton<IHostedService, SchadulerService>();
 
 var app = builder.Build();
 

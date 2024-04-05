@@ -27,6 +27,7 @@ namespace CitroenAPI.Controllers
     {
         private readonly CitroenDbContext _context;
         private readonly IWebHostEnvironment _hostingEnvironment;
+        private static int lastCount;
         string absolutePath;
         string absolutePathKEY;
         int callLimit = 0;
@@ -107,7 +108,7 @@ namespace CitroenAPI.Controllers
                 {
                     DateTime date = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
 
-                    DateTime sevenDays = date.AddDays(-3);
+                    DateTime sevenDays = date.AddMinutes(-20);
 
                     var dateRange = new
                     {
@@ -135,51 +136,27 @@ namespace CitroenAPI.Controllers
 
                     RootObject responseData = JsonConvert.DeserializeObject<RootObject>(responseBody);
 
-                    Logs logs = new Logs();
-
-                    foreach (Message msg in responseData.message)
+                    if (lastCount < responseData.message.Count)
                     {
-                        logs.GitId = msg.gitId;
-                        logs.DispatchDate = msg.dispatchDate;
-                        logs.CreatedDate = DateTime.Now;
-                        bool inserted = await AddLog(logs);
-                        if (inserted)
+                        Logs logs = new Logs();
+
+                        foreach (Message msg in responseData.message)
                         {
-                            msg.leadData.gitId = msg.gitId;
-                            await PostAsync(msg.leadData, msg.preferredContactMethod);
+                            logs.GitId = msg.gitId;
+                            logs.DispatchDate = msg.dispatchDate;
+                            logs.CreatedDate = DateTime.Now;
+                            bool inserted = await AddLog(logs);
+                            if (inserted)
+                            {
+                                msg.leadData.gitId = msg.gitId;
+                                await PostAsync(msg.leadData, msg.preferredContactMethod);
+                            }
                         }
                     }
 
-                    ApiCalls apiCalls = new ApiCalls();
+                    lastCount = responseData.message.Count;
 
-                    DateTime dateTimeNow;
-                 
-                    apiCalls.Status = response.StatusCode.ToString();
-
-                    try
-                    {
-                        dateTimeNow = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
-                        apiCalls.CallDateTime = dateTimeNow;
-                        _context.ApiCalls.Add(apiCalls);
-                        await _context.SaveChangesAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex.Message);
-                        apiCalls.Status = ex.Message;
-                        try
-                        {
-                            dateTimeNow = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
-                            apiCalls.CallDateTime = dateTimeNow;
-                            _context.ApiCalls.Add(apiCalls);
-                            await _context.SaveChangesAsync();
-                        }
-                        catch (Exception exception) 
-                        {
-                            Console.WriteLine(exception.Message);
-                        }   
-                    }
-                   return response.StatusCode.ToString();
+                    return response.StatusCode.ToString();
                 }
                 catch (HttpRequestException e)
                 {
