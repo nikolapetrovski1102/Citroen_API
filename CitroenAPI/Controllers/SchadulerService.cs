@@ -1,4 +1,5 @@
 ﻿
+using Azure;
 using CitroenAPI.Models.DbContextModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -71,7 +72,19 @@ namespace CitroenAPI.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
+                ApiCalls apiCalls = new ApiCalls();
+
+                DateTime dateTimeNow;
+
+                dateTimeNow = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
+                apiCalls.Status = StatusCodes.Status500InternalServerError.ToString();
+                apiCalls.CallDateTime = dateTimeNow;
+
+                _context.ApiCalls.Add(apiCalls);
+
+                await _context.SaveChangesAsync();
+
+
             }
 
 

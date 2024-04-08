@@ -108,7 +108,7 @@ namespace CitroenAPI.Controllers
                 {
                     DateTime date = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
 
-                    DateTime sevenDays = date.AddMinutes(-20);
+                    DateTime sevenDays = date.AddDays(-3);
 
                     var dateRange = new
                     {
