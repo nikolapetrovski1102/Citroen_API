@@ -14,6 +14,8 @@ using System.Data.Common;
 using static CitroenAPI.Models.Enums;
 using CitroenAPI.Models.DbContextModels;
 using CitroenAPI.Models;
+using CitroenAPI.Logger;
+using Azure;
 
 
 
@@ -32,12 +34,15 @@ namespace CitroenAPI.Controllers
         string absolutePathKEY;
         int callLimit = 0;
         private Timer timer;
-
+        private ILogger<CitroenApiController> _logger;
      
-        public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment)
+        public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment,ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger)
         {
+            loggerFactory.AddFile(Path.Combine(Directory.GetCurrentDirectory(), "logs"));
             _context = context;
             _hostingEnvironment = hostingEnvironment;
+            _logger = logger;
+            _logger.LogInformation("Constructor was executed");
         }
 
         HttpListener.ExtendedProtectionSelector ExtendedProtectionSelector { get; set; }
@@ -48,6 +53,7 @@ namespace CitroenAPI.Controllers
         {
             try
             {
+                _logger.LogInformation($"{nameof(Get)}");
                 string certificateFilePath = @".\Certificate\MZPDFMAP.cer";
                 string certificatePassword = @".\Certificate\MZPDFMAP.pk"; // If the certificate is password-protected
 
@@ -60,7 +66,7 @@ namespace CitroenAPI.Controllers
                 absolutePathKEY = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificatePassword);
 
                 clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
-
+                _logger.LogInformation("Certificates passed");
                 var handler = new HttpClientHandler();
                 handler.ClientCertificates.Add(clientCertificate);
 
@@ -68,16 +74,17 @@ namespace CitroenAPI.Controllers
 
                 var client = new HttpClient(loggingHandler);
                 client.DefaultRequestHeaders.Add("User-Agent", "YourUserAgent");
-
+                _logger.LogInformation("Created client and handler");
                 var requestUri = "https://api-secure.forms.awsmpsa.com/oauth/v2/token?client_id=5f7f179e7714a1005d204b43_2w88uv9394aok4g8gs0ccc4w4gwsskowck0gs0oo0sggw0kog0&client_secret=619ffmx8sn0g8ossso44wwok8scgoww00s8sogkw8w08cgc0wg&grant_type=password&username=ACMKPR&password=N9zTQ6v1";
                 var response = await client.GetAsync(requestUri);
-
+                _logger.LogInformation($"Response: {response}");
                 response.EnsureSuccessStatusCode();
 
                 return await response.Content.ReadAsStringAsync();
             }
             catch (Exception ex)
             {
+                _logger.LogError("Error was happening at get method " + ex.Message);
                 return ex.Message + " looking folder for: " + absolutePath;
 
             }
@@ -98,7 +105,8 @@ namespace CitroenAPI.Controllers
         [HttpPost]
         public async Task<string> Post()
         {
-           
+            _logger.LogInformation("Post method started");
+
             var handler = new HttpClientHandler();
             var resp = Get().Result;
             handler.ClientCertificates.Add(clientCertificate);
@@ -108,7 +116,7 @@ namespace CitroenAPI.Controllers
                 {
                     DateTime date = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
 
-                    DateTime sevenDays = date.AddDays(-3);
+                    DateTime sevenDays = date.AddDays(-1);
 
                     var dateRange = new
                     {
@@ -126,11 +134,12 @@ namespace CitroenAPI.Controllers
                     httpClient.DefaultRequestHeaders.Authorization = authHeader;
 
                     var response = await httpClient.PostAsync("https://api-secure.forms.awsmpsa.com/formsv3/api/leads", content);
-
+                    _logger.LogInformation("Post method Response: "+response.StatusCode);
                     string responseBody = await response.Content.ReadAsStringAsync();
 
-                    if (response.StatusCode == HttpStatusCode.NotFound) 
+                    if (response.StatusCode == HttpStatusCode.NotFound)
                     {
+                        _logger.LogInformation("Post method no Leads");
                         return "No new leads";
                     }
 
@@ -139,7 +148,7 @@ namespace CitroenAPI.Controllers
                     if (lastCount < responseData.message.Count)
                     {
                         Logs logs = new Logs();
-
+                        _logger.LogInformation("Post method creating Logs");
                         foreach (Message msg in responseData.message)
                         {
                             logs.GitId = msg.gitId;
@@ -152,6 +161,7 @@ namespace CitroenAPI.Controllers
                                 await PostAsync(msg.leadData, msg.preferredContactMethod);
                             }
                         }
+                        _logger.LogInformation("Post method formethod exit - Logs");
                     }
 
                     lastCount = responseData.message.Count;
@@ -160,6 +170,7 @@ namespace CitroenAPI.Controllers
                 }
                 catch (HttpRequestException e)
                 {
+                    _logger.LogError("Post method error "+e.Message);
                     return e.Message.ToString();
                 }
             }
@@ -213,6 +224,7 @@ namespace CitroenAPI.Controllers
         [HttpPost("SalesForce")]
         private async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered)
         {
+            _logger.LogInformation("Started sending leads to SF");
             StatusLeads sl = new StatusLeads();
             try
             {
@@ -256,11 +268,13 @@ namespace CitroenAPI.Controllers
                     "&00N7Q00000KWlxC=" + model +
                     "&00N7Q00000KWlxH=" + dealers;
 
+                _logger.LogInformation("Lead URL: " + url);
                 var client = new HttpClient();
                 var request = new HttpRequestMessage(HttpMethod.Post, url);
 
                 request.Headers.Add("Cookie", "BrowserId=asdasdasdasdasda");
                 var response = await client.SendAsync(request);
+                _logger.LogInformation("Lead response: "+response.StatusCode );
                 response.EnsureSuccessStatusCode();
                 
                 sl.GitId = data.gitId;
@@ -270,12 +284,13 @@ namespace CitroenAPI.Controllers
                 _context.StatusLeads.Add(sl);
 
                 _context.SaveChanges();
-
+                _logger.LogInformation("Lead logs saved");
                 callLimit = 0;
 
             }
             catch (Exception ex)
             {
+                _logger.LogInformation("Lead to sf method exception: " + ex.Message);
                 if (ex.InnerException != null && callLimit < 3 && ex.InnerException.Message.Contains("No such host is known."))
                 {
                     callLimit++;
