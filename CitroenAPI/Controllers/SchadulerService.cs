@@ -45,6 +45,7 @@ namespace CitroenAPI.Controllers
 
         private async void RunAgain(object? state)
         {
+            _logger.LogInformation("==============================================================================================");
             _logger.LogInformation("Started RunAgain method");
             try
             {

@@ -53,6 +53,7 @@ namespace CitroenAPI.Controllers
         {
             try
             {
+                _logger.LogInformation("--------------------------------------------------------------------------------");
                 _logger.LogInformation($"{nameof(Get)}");
                 string certificateFilePath = @".\Certificate\MZPDFMAP.cer";
                 string certificatePassword = @".\Certificate\MZPDFMAP.pk"; // If the certificate is password-protected
@@ -105,6 +106,7 @@ namespace CitroenAPI.Controllers
         [HttpPost]
         public async Task<string> Post()
         {
+            _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Post method started");
 
             var handler = new HttpClientHandler();
@@ -224,6 +226,7 @@ namespace CitroenAPI.Controllers
         [HttpPost("SalesForce")]
         private async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered)
         {
+            _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Started sending leads to SF");
             StatusLeads sl = new StatusLeads();
             try
