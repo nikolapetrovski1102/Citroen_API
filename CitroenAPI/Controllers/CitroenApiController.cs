@@ -108,6 +108,7 @@ namespace CitroenAPI.Controllers
         {
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Post method started");
+            _logger.LogInformation("--------------------------------------------------------------------------------");
 
             var handler = new HttpClientHandler();
             var resp = Get().Result;
@@ -118,11 +119,9 @@ namespace CitroenAPI.Controllers
                 {
                     DateTime date = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
 
-                    DateTime sevenDays = date.AddDays(-1);
-
                     var dateRange = new
                     {
-                        startDate = sevenDays.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz"),
+                        startDate = date.ToString("yyyy-MM-ddT00:00:00.fffzzz"),
                         endDate = date.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz")
                     };
 
@@ -132,47 +131,60 @@ namespace CitroenAPI.Controllers
                     var content = new StringContent(jsonDate, Encoding.UTF8, "application/json");
                     AuthenticationHeaderValue authHeader = new AuthenticationHeaderValue("Authorization", "Bearer " + tokenObject.access_token);
 
-                    httpClient.DefaultRequestHeaders.Add("User-Agent", "YourUserAgent");
+                    httpClient.DefaultRequestHeaders.Add("User-Agent", "NewYourUserAgent");
                     httpClient.DefaultRequestHeaders.Authorization = authHeader;
 
                     var response = await httpClient.PostAsync("https://api-secure.forms.awsmpsa.com/formsv3/api/leads", content);
                     _logger.LogInformation("Post method Response: "+response.StatusCode);
                     string responseBody = await response.Content.ReadAsStringAsync();
 
-                    if (response.StatusCode == HttpStatusCode.NotFound)
+
+                    if (response.StatusCode != HttpStatusCode.OK)
                     {
-                        _logger.LogInformation("Post method no Leads");
+                        _logger.LogInformation("Post method " + response.StatusCode.ToString());
                         return "No new leads";
                     }
 
-                    RootObject responseData = JsonConvert.DeserializeObject<RootObject>(responseBody);
+                    RootObject responseData;
 
-                    if (lastCount < responseData.message.Count)
+                    try
                     {
-                        Logs logs = new Logs();
-                        _logger.LogInformation("Post method creating Logs");
-                        foreach (Message msg in responseData.message)
-                        {
-                            logs.GitId = msg.gitId;
-                            logs.DispatchDate = msg.dispatchDate;
-                            logs.CreatedDate = DateTime.Now;
-                            bool inserted = await AddLog(logs);
-                            if (inserted)
-                            {
-                                msg.leadData.gitId = msg.gitId;
-                                await PostAsync(msg.leadData, msg.preferredContactMethod);
-                            }
-                        }
-                        _logger.LogInformation("Post method formethod exit - Logs");
+                        responseData = JsonConvert.DeserializeObject<RootObject>(responseBody);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString());
+                        return null;
                     }
 
-                    lastCount = responseData.message.Count;
+                    Logs logs = new Logs();
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
+                    _logger.LogInformation("Post method creating Logs");
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
+                    foreach (Message msg in responseData.message)
+                    {
+                        logs.GitId = msg.gitId;
+                        logs.DispatchDate = msg.dispatchDate;
+                        logs.CreatedDate = DateTime.Now;
+                        bool inserted = await AddLog(logs);
+                        if (inserted)
+                        {
+                            msg.leadData.gitId = msg.gitId;
+                            await PostAsync(msg.leadData, msg.preferredContactMethod);
+                        }
+                    }
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
+                    _logger.LogInformation("Post method formethod exit - Logs");
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
 
                     return response.StatusCode.ToString();
                 }
                 catch (HttpRequestException e)
                 {
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
                     _logger.LogError("Post method error "+e.Message);
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
+
                     return e.Message.ToString();
                 }
             }
