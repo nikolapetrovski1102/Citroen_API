@@ -13,9 +13,7 @@ using Newtonsoft.Json;
 using System.Data.Common;
 using static CitroenAPI.Models.Enums;
 using CitroenAPI.Models.DbContextModels;
-using CitroenAPI.Models;
 using CitroenAPI.Logger;
-using Azure;
 
 
 
@@ -74,7 +72,7 @@ namespace CitroenAPI.Controllers
                 var loggingHandler = new HttpLoggingHandler(handler);
 
                 var client = new HttpClient(loggingHandler);
-                client.DefaultRequestHeaders.Add("User-Agent", "YourUserAgent");
+                client.DefaultRequestHeaders.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
                 _logger.LogInformation("Created client and handler");
                 var requestUri = "https://api-secure.forms.awsmpsa.com/oauth/v2/token?client_id=5f7f179e7714a1005d204b43_2w88uv9394aok4g8gs0ccc4w4gwsskowck0gs0oo0sggw0kog0&client_secret=619ffmx8sn0g8ossso44wwok8scgoww00s8sogkw8w08cgc0wg&grant_type=password&username=ACMKPR&password=N9zTQ6v1";
                 var response = await client.GetAsync(requestUri);
@@ -111,6 +109,7 @@ namespace CitroenAPI.Controllers
 
             var handler = new HttpClientHandler();
             var resp = Get().Result;
+            clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
             handler.ClientCertificates.Add(clientCertificate);
             using (var httpClient = new HttpClient(new HttpLoggingHandler(handler)))
             {
@@ -118,7 +117,7 @@ namespace CitroenAPI.Controllers
                 {
                     DateTime date = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
 
-                    DateTime sevenDays = date.AddDays(-1);
+                    DateTime sevenDays = date.AddDays(-2);
 
                     var dateRange = new
                     {
@@ -127,21 +126,27 @@ namespace CitroenAPI.Controllers
                     };
 
                     string jsonDate = JsonConvert.SerializeObject(dateRange);
-
                     TokenAuth tokenObject = JsonConvert.DeserializeObject<TokenAuth>(resp);
+                   
                     var content = new StringContent(jsonDate, Encoding.UTF8, "application/json");
-                    AuthenticationHeaderValue authHeader = new AuthenticationHeaderValue("Authorization", "Bearer " + tokenObject.access_token);
+                    AuthenticationHeaderValue authHeader = new AuthenticationHeaderValue("Authorization", "Bearer "+ tokenObject.access_token.Trim());
+                    HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://api-secure.forms.awsmpsa.com/formsv3/api/leads");
+                    request.Content = content;
+                    request.Headers.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenObject.access_token.Trim());
+                   // httpClient.DefaultRequestHeaders.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
 
-                    httpClient.DefaultRequestHeaders.Add("User-Agent", "YourUserAgent");
-                    httpClient.DefaultRequestHeaders.Authorization = authHeader;
+                    //httpClient.DefaultRequestHeaders.Authorization = authHeader;
 
-                    var response = await httpClient.PostAsync("https://api-secure.forms.awsmpsa.com/formsv3/api/leads", content);
+                    //var response = await httpClient.PostAsync("https://api-secure.forms.awsmpsa.com/formsv3/api/leads", content);
+
+                    var response= await httpClient.SendAsync(request);
                     _logger.LogInformation("Post method Response: "+response.StatusCode);
                     string responseBody = await response.Content.ReadAsStringAsync();
 
                     if (response.StatusCode == HttpStatusCode.NotFound)
                     {
-                        _logger.LogInformation("Post method no Leads");
+                       _logger.LogInformation("Post method no Leads");
                         return "No new leads";
                     }
 
