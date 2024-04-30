@@ -1,6 +1,5 @@
 ﻿
 using CitroenAPI.Models;
-using MailKit.Net.Smtp;
 using Microsoft.Extensions.Options;
 using MimeKit;
 using System.Net.Mail;

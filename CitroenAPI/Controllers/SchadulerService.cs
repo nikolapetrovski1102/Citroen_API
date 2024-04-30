@@ -37,7 +37,6 @@ namespace CitroenAPI.Controllers
             _context = context;
             _logger = logger;
             emailConfig= new EmailConfiguration();
-
             emailConfig.From = _configuration["EmailConfiguration:From"];
             emailConfig.UserName = _configuration["EmailConfiguration:Username"];
             emailConfig.Password = _configuration["EmailConfiguration:Password"];
@@ -45,6 +44,8 @@ namespace CitroenAPI.Controllers
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Constructor call in the service");
             _logger.LogInformation("--------------------------------------------------------------------------------");
+          //  MessageEmail email1 = new MessageEmail(null, "CitroenAPI", "Local Test Start", emailConfig);
+           // email1.SendEmail();// Wait for the service to start
         }
         public void Dispose()
         {
