@@ -22,6 +22,7 @@ namespace CitroenAPI.Controllers
             messages.Add("aandonovski@ohanaone.mk");
             messages.Add("bstoimenov@ohanaone.mk");
             messages.Add("npetrovski@ohanaone.mk");
+            messages.Add("dstoimenova@ohanaone.mk");
 
             // Create a list to store MailboxAddress instances
             List<MailboxAddress> addresses = new List<MailboxAddress>();
