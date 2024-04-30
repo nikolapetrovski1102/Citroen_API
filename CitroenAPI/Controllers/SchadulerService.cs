@@ -7,11 +7,19 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Org.BouncyCastle.Security;
 using System.Diagnostics;
+using System.Net.Mail;
+using System.Net;
+using System.ServiceProcess;
+using Microsoft.Extensions.Options;
+using CitroenAPI.Models;
 
 namespace CitroenAPI.Controllers
 {
     public class SchadulerService : IHostedService, IDisposable
     {
+        private ServiceController _service;
+        private string _serviceName = "SchadulerServiceInner";
+        private EmailConfiguration emailConfig;
         private readonly ILogger<SchadulerService> _logger;
         private Timer _timerForNext;
         private readonly CitroenDbContext _context;
@@ -21,18 +29,51 @@ namespace CitroenAPI.Controllers
         public SchadulerService(IServiceScopeFactory serviceScopeFactory,
             Microsoft.AspNetCore.Hosting.IHostingEnvironment environment, IConfiguration configuration, CitroenDbContext context,ILoggerFactory loggerFactory,ILogger<SchadulerService> logger)
         {
+            _service = new ServiceController(_serviceName);
             loggerFactory.AddFile(Path.Combine(Directory.GetCurrentDirectory(), "logs"));
             _scopeFactory = serviceScopeFactory;
             _environment = environment;
             _configuration = configuration;
             _context = context;
             _logger = logger;
+            emailConfig= new EmailConfiguration();
+
+            emailConfig.From = _configuration["EmailConfiguration:From"];
+            emailConfig.UserName = _configuration["EmailConfiguration:Username"];
+            emailConfig.Password = _configuration["EmailConfiguration:Password"];
+            emailConfig.SmtpServer = _configuration["EmailConfiguration:SmtpServer"];
+            _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Constructor call in the service");
+            _logger.LogInformation("--------------------------------------------------------------------------------");
         }
         public void Dispose()
         {
-            _logger.LogInformation("Dispoce method was called inside constructor");
-           // throw new NotImplementedException();
+            
+            _logger.LogInformation("Dispose method was called inside constructor");
+
+            if (_service.Status == ServiceControllerStatus.Running)
+            {
+                MessageEmail email = new MessageEmail(null, "CitroenAPI", "Citroen Se Gasi", emailConfig);
+                email.SendEmail();
+                _service.Stop();
+                _service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30)); // Wait for the service to stop
+               
+            }
+
+            // Start the service again if it was running
+            if (_service.Status == ServiceControllerStatus.Stopped)
+            {
+                MessageEmail email1 = new MessageEmail(null, "CitroenAPI", "Citroen Se Restartira", emailConfig);
+                email1.SendEmail();// Wait for the service to start
+                _logger.LogInformation("Restarting Service Again ");
+                _service.Start();
+                _service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
+                
+            }
+            else
+            {
+                _logger.LogInformation("Service was not running before dispose, so it was not restarted.");
+            }
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
@@ -45,6 +86,8 @@ namespace CitroenAPI.Controllers
 
         private async void RunAgain(object? state)
         {
+            
+
             _logger.LogInformation("==============================================================================================");
             _logger.LogInformation("Started RunAgain method");
             try
@@ -52,77 +95,46 @@ namespace CitroenAPI.Controllers
                 var client = new HttpClient();
                 
                 HttpRequestMessage request;
+                _logger.LogInformation("--------------------------------------------------------------------------------");
                 _logger.LogInformation("Created a httpClient and request");
+                _logger.LogInformation("--------------------------------------------------------------------------------");
                 if (!Debugger.IsAttached)
                 {
                     request = new HttpRequestMessage(HttpMethod.Post, "https://cyberlink-001-site29.anytempurl.com/api/CitroenApi");
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
                     _logger.LogInformation("Debuger is not Attached " + request.ToString());
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
                 }
                 else
                 {
                     request = new HttpRequestMessage(HttpMethod.Post, "http://localhost:5216/api/CitroenApi");
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
                     _logger.LogInformation("Debugger is attached " + request.ToString());
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
                 }
                 request.Headers.Add("password", "b5267c1e130ec85238d12a4e5f2c85a1b185f7b7");
                 _logger.LogInformation("Added Headers");
                 var response = await client.SendAsync(request);
                 _logger.LogInformation("Response result "+response.Content.ToString());
-                response.EnsureSuccessStatusCode();
+                _logger.LogInformation("--------------------------------------------------------------------------------");
                 _logger.LogInformation("Response result is successfull check");
+                _logger.LogInformation("--------------------------------------------------------------------------------");
                 Console.WriteLine(await response.Content.ReadAsStringAsync());
 
-                ApiCalls apiCalls = new ApiCalls();
-
-                DateTime dateTimeNow;
-
-                dateTimeNow = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
-                apiCalls.Status = response.StatusCode.ToString();
-                apiCalls.CallDateTime = dateTimeNow;
-                _logger.LogInformation("ApiCalll is created");
-                try
-                {
-                    _logger.LogInformation("ApiCall Trying to save in Database");
-                    _context.ApiCalls.Add(apiCalls);
-                   
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation("ApiCall was saved into DB");
-                }
-                catch (Exception ex) {
-                    _logger.LogError("0 ApiCall error wile saving in DB "+ex.Message);
-                       apiCalls.Status = ex.Message.ToString();
-                        _logger.LogInformation("1 One more time to store the api calls");
-                        _context.ApiCalls.Add(apiCalls);
-
-                        await _context.SaveChangesAsync();
-                        _logger.LogInformation("1 Api calls are stored");
-                    
-                   
-                }
 
             }
             catch (Exception ex)
             {
-                _logger.LogError("1 ApiCall error wile saving in DB " + ex.Message);
-                try
-                {
-                    _logger.LogInformation("3 One more time to store the api calls");
-                    ApiCalls apiCalls = new ApiCalls();
+                //var smtpClient = new SmtpClient("smtp.gmail.com")
+                //{
+                //    Port = 587,
+                //    Credentials = new NetworkCredential("npetrovski@ohanaone.mk", "NPohana1#*"),
+                //    EnableSsl = true,
+                //};
 
-                    DateTime dateTimeNow;
+                //smtpClient.Send("npetrovski@ohanaone.mk", "npetrovski@ohanaone.mk", "CITROEN API", "ApiCall error" + ex.Message);
 
-                    dateTimeNow = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
-                    apiCalls.Status = StatusCodes.Status500InternalServerError.ToString();
-                    apiCalls.CallDateTime = dateTimeNow;
-
-                    _context.ApiCalls.Add(apiCalls);
-
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation("3 Api Calls are stored");
-                }
-                catch
-                {
-                    _logger.LogInformation("3 Api Calls are not stored due to the previous problems");
-                }
+                _logger.LogError("1 ApiCall error " + ex.Message);
 
             }
 

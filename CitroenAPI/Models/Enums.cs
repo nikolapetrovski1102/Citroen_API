@@ -223,5 +223,71 @@ namespace CitroenAPI.Models
             MoreThan251 = 500
         }
 
+        public enum CarModelsEnum
+        {
+            [EnumStringValue("C3")]
+            Model_1CB6A5,
+            [EnumStringValue("C3 Aircross")]
+            Model_1CW8AF,
+            [EnumStringValue("C4")]
+            Model_1CLEA5,
+            [EnumStringValue("e-C4")]
+            Model_1CLEEL,
+            [EnumStringValue("C4 X")]
+            Model_1CLPA4,
+            [EnumStringValue("e-C4 X")]
+            Model_1CLPEL,
+            [EnumStringValue("C5 Aircross")]
+            Model_1CCESY,
+            [EnumStringValue("C5 Aircross Hybrid")]
+            Model_1CCEHYB,
+            [EnumStringValue("C5 X")]
+            Model_1CWKCB,
+            [EnumStringValue("C5 X Hybrid")]
+            Model_1CWKHYB,
+            [EnumStringValue("New e-C3")]
+            Model_1CSCEL,
+            [EnumStringValue("New C3 Aircross")]
+            Model_1CSJSU,
+            [EnumStringValue("Berlingo Van")]
+            Model_2CK9,
+            [EnumStringValue("e-Berlingo Van")]
+            Model_2CK9EL,
+            [EnumStringValue("Jumpy")]
+            Model_2CK0,
+            [EnumStringValue("e-Jumpy")]
+            Model_2CK0EL,
+            [EnumStringValue("Jumper")]
+            Model_2CU9,
+            [EnumStringValue("e-Jumper")]
+            Model_2CU9EL,
+            [EnumStringValue("New Berlingo")]
+            Model_1CK9,
+            [EnumStringValue("New e-Berlingo")]
+            Model_1CK9EL,
+            [EnumStringValue("New Berlingo Business")]
+            Model_1CK9K0,
+            [EnumStringValue("New Spacetourer")]
+            Model_1CK0PQRS,
+            [EnumStringValue("New e-Spacetourer")]
+            Model_1CK0PQREL,
+            [EnumStringValue("New Berlingo Van")]
+            Model_2CK9_70_,
+            [EnumStringValue("New e-Berlingo Van")]
+            Model_2CK9EL_70_,
+            [EnumStringValue("New Jumpy")]
+            Model_1CK0,
+            [EnumStringValue("New e-Jumpy")]
+            Model_1CK0F,
+            [EnumStringValue("New Jumper")]
+            Model_2CXE,
+            [EnumStringValue("New e-Jumper")]
+            Model_2CXEEL,
+            [EnumStringValue("C3 Business")]
+            Model_1CB6K0,
+            [EnumStringValue("Berlingo Business")]
+            Model_1CK9K
+        }
+
     }
 }

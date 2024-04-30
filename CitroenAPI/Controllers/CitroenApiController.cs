@@ -2,9 +2,6 @@
 using ReptilApp.Api;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using Org.BouncyCastle.OpenSsl;
-using Org.BouncyCastle.Security;
-using Org.BouncyCastle.Crypto.Parameters;
 using CitroenAPI.Models;
 using System.Text;
 using System.Net.Http.Headers;
@@ -14,7 +11,9 @@ using System.Data.Common;
 using static CitroenAPI.Models.Enums;
 using CitroenAPI.Models.DbContextModels;
 using CitroenAPI.Logger;
-
+using Org.BouncyCastle.OpenSsl;
+using Org.BouncyCastle.Security;
+using Org.BouncyCastle.Crypto.Parameters;
 
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -98,6 +97,7 @@ namespace CitroenAPI.Controllers
             RSA rsa = DotNetUtilities.ToRSA(keyPair);
             cert = cert.CopyWithPrivateKey(rsa);
             return new X509Certificate2(cert.Export(X509ContentType.Pfx));
+
         }
 
         // POST api/<ValuesController>
@@ -106,6 +106,7 @@ namespace CitroenAPI.Controllers
         {
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Post method started");
+            _logger.LogInformation("--------------------------------------------------------------------------------");
 
             var handler = new HttpClientHandler();
             var resp = Get().Result;
@@ -117,11 +118,13 @@ namespace CitroenAPI.Controllers
                 {
                     DateTime date = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
 
-                    DateTime sevenDays = date.AddDays(-2);
+
+                    DateTime sevenDays = date.AddDays(-5);
+
 
                     var dateRange = new
                     {
-                        startDate = sevenDays.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz"),
+                        startDate = sevenDays.ToString("yyyy-MM-ddT00:00:00.fffzzz"),
                         endDate = date.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz")
                     };
 
@@ -136,7 +139,9 @@ namespace CitroenAPI.Controllers
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenObject.access_token.Trim());
                    // httpClient.DefaultRequestHeaders.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
 
+
                     //httpClient.DefaultRequestHeaders.Authorization = authHeader;
+
 
                     //var response = await httpClient.PostAsync("https://api-secure.forms.awsmpsa.com/formsv3/api/leads", content);
 
@@ -144,40 +149,57 @@ namespace CitroenAPI.Controllers
                     _logger.LogInformation("Post method Response: "+response.StatusCode);
                     string responseBody = await response.Content.ReadAsStringAsync();
 
-                    if (response.StatusCode == HttpStatusCode.NotFound)
+
+                    if (response.StatusCode != HttpStatusCode.OK)
                     {
+
                        _logger.LogInformation("Post method no Leads");
+
+                        _logger.LogInformation("Post method " + response.StatusCode.ToString());
+
                         return "No new leads";
                     }
 
-                    RootObject responseData = JsonConvert.DeserializeObject<RootObject>(responseBody);
+                    RootObject responseData;
 
-                    if (lastCount < responseData.message.Count)
+                    try
                     {
-                        Logs logs = new Logs();
-                        _logger.LogInformation("Post method creating Logs");
-                        foreach (Message msg in responseData.message)
-                        {
-                            logs.GitId = msg.gitId;
-                            logs.DispatchDate = msg.dispatchDate;
-                            logs.CreatedDate = DateTime.Now;
-                            bool inserted = await AddLog(logs);
-                            if (inserted)
-                            {
-                                msg.leadData.gitId = msg.gitId;
-                                await PostAsync(msg.leadData, msg.preferredContactMethod);
-                            }
-                        }
-                        _logger.LogInformation("Post method formethod exit - Logs");
+                        responseData = JsonConvert.DeserializeObject<RootObject>(responseBody);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString());
+                        return null;
                     }
 
-                    lastCount = responseData.message.Count;
+                    Logs logs = new Logs();
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
+                    _logger.LogInformation("Post method creating Logs");
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
+                    foreach (Message msg in responseData.message)
+                    {
+                        logs.GitId = msg.gitId;
+                        logs.DispatchDate = msg.dispatchDate;
+                        logs.CreatedDate = DateTime.Now;
+                        bool inserted = await AddLog(logs);
+                        if (inserted)
+                        {
+                            msg.leadData.gitId = msg.gitId;
+                            await PostAsync(msg.leadData, msg.preferredContactMethod);
+                        }
+                    }
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
+                    _logger.LogInformation("Post method formethod exit - Logs");
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
 
                     return response.StatusCode.ToString();
                 }
                 catch (HttpRequestException e)
                 {
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
                     _logger.LogError("Post method error "+e.Message);
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
+
                     return e.Message.ToString();
                 }
             }
@@ -239,10 +261,34 @@ namespace CitroenAPI.Controllers
                 string salutation = data.customer.civility == null ? "--None--" : String.IsNullOrEmpty(Enums.GetEnumValue(data.customer.civility)) ? "--None-- " : Enums.GetEnumValue(data.customer.civility);
                 string requestType = data.requestType == null ? "--None--" : String.IsNullOrEmpty(Enums.GetEnumValue(data.requestType)) ? "--None--" : Enums.GetEnumValue(data.requestType);
                 string commetns = data.comments == null ? "" : String.IsNullOrEmpty(data.comments) ? "" : data.comments;
-                string model = data.interestProduct == null ? "--None--" : String.IsNullOrEmpty(data.interestProduct.model) ? "" : data.interestProduct.model;
+                string model = data.interestProduct == null ? "--None--" : String.IsNullOrEmpty(data.interestProduct.lcdv) ? "" : data.interestProduct.lcdv;
                 string dealers = data.dealers.Count == 0 ? "" : String.IsNullOrEmpty(data.dealers[0].geoSiteCode) ? "" : data.dealers[0].geoSiteCode;
                 string mobilePhone = data.customer.personalMobilePhone == null ? "" : String.IsNullOrEmpty(data.customer.personalMobilePhone) ? "" : data.customer.personalMobilePhone;
                 string consents = String.Empty;
+
+                CarModelsEnum carenum;
+                if (!model.Equals("--None--")&&model.Length>0)
+                {
+                    var split = model.Split('(');
+                    if (split.Length >1) {
+                        var replace = model.Replace('(', '_');
+                        replace = replace.Replace(')', '_');
+                        var split1 = replace.Split(' ');
+                        replace = split1[0] + split1[1];
+                        model = "Model_" + replace;
+                    }
+                    else
+                    {
+                        model = "Model_" + model;
+                    }
+
+                    
+                    Enum.TryParse(model,out carenum);
+                    model = Enums.GetEnumValue(carenum).ToString();
+                }
+
+                
+
 
                 if (data.consents.Count > 0)
                 {
