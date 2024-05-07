@@ -1,16 +1,7 @@
-﻿
-using Azure;
-using CitroenAPI.Logger;
+﻿using CitroenAPI.Logger;
 using CitroenAPI.Models.DbContextModels;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Org.BouncyCastle.Security;
 using System.Diagnostics;
-using System.Net.Mail;
-using System.Net;
 using System.ServiceProcess;
-using Microsoft.Extensions.Options;
 using CitroenAPI.Models;
 
 namespace CitroenAPI.Controllers
@@ -44,8 +35,6 @@ namespace CitroenAPI.Controllers
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Constructor call in the service");
             _logger.LogInformation("--------------------------------------------------------------------------------");
-          //  MessageEmail email1 = new MessageEmail(null, "CitroenAPI", "Local Test Start", emailConfig);
-           // email1.SendEmail();// Wait for the service to start
         }
         public void Dispose()
         {
@@ -54,8 +43,8 @@ namespace CitroenAPI.Controllers
 
             if (_service.Status == ServiceControllerStatus.Running)
             {
-                MessageEmail email = new MessageEmail(null, "CitroenAPI", "Citroen Se Gasi", emailConfig);
-                email.SendEmail();
+                Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+                emailer.SendEmail("CitroenAPI Info", "Citroen se gasi");
                 _service.Stop();
                 _service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30)); // Wait for the service to stop
                
@@ -64,9 +53,9 @@ namespace CitroenAPI.Controllers
             // Start the service again if it was running
             if (_service.Status == ServiceControllerStatus.Stopped)
             {
-                MessageEmail email1 = new MessageEmail(null, "CitroenAPI", "Citroen Se Restartira", emailConfig);
-                email1.SendEmail();// Wait for the service to start
-                _logger.LogInformation("Restarting Service Again ");
+                Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+                emailer.SendEmail("CitroenAPI INFO", "Citroen se restartira");
+                _logger.LogInformation("Restarting Service Again");
                 _service.Start();
                 _service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
                 
@@ -79,15 +68,18 @@ namespace CitroenAPI.Controllers
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
+            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+
+            emailer.SendEmail("CitroenAPI", "Citroen se pali");
+
             _logger.LogInformation("Started the task async method");
-            _timerForNext = new Timer(RunAgain, null, TimeSpan.Zero, TimeSpan.FromMinutes(10));
+            _timerForNext = new Timer(RunAgain, null, TimeSpan.Zero, TimeSpan.FromHours(2));
             _logger.LogInformation("Executed the RunAgain method with result");
             return Task.CompletedTask;
         }
 
         private async void RunAgain(object? state)
         {
-            
 
             _logger.LogInformation("==============================================================================================");
             _logger.LogInformation("Started RunAgain method");
@@ -126,17 +118,8 @@ namespace CitroenAPI.Controllers
             }
             catch (Exception ex)
             {
-                //var smtpClient = new SmtpClient("smtp.gmail.com")
-                //{
-                //    Port = 587,
-                //    Credentials = new NetworkCredential("npetrovski@ohanaone.mk", "NPohana1#*"),
-                //    EnableSsl = true,
-                //};
-
-                //smtpClient.Send("npetrovski@ohanaone.mk", "npetrovski@ohanaone.mk", "CITROEN API", "ApiCall error" + ex.Message);
 
                 _logger.LogError("1 ApiCall error " + ex.Message);
-
             }
 
 

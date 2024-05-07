@@ -1,8 +1,5 @@
-using CitroenAPI;
 using CitroenAPI.Controllers;
-using CitroenAPI.Models;
 using CitroenAPI.Models.DbContextModels;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);

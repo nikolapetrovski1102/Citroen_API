@@ -178,6 +178,10 @@ namespace CitroenAPI.Controllers
                     _logger.LogInformation("--------------------------------------------------------------------------------");
                     foreach (Message msg in responseData.message)
                     {
+                        if (msg.gitId == "MTcxNTA3NTE2NE4yTmd1")
+                        {
+                            Console.WriteLine("asd");
+                        }
                         logs.GitId = msg.gitId;
                         logs.DispatchDate = msg.dispatchDate;
                         logs.CreatedDate = DateTime.Now;
@@ -267,7 +271,7 @@ namespace CitroenAPI.Controllers
                 string consents = String.Empty;
 
                 CarModelsEnum carenum;
-                if (!model.Equals("--None--")&&model.Length>0)
+                if (!model.Equals("--None--") && model.Length > 0)
                 {
                     var split = model.Split('(');
                     if (split.Length >1) {
