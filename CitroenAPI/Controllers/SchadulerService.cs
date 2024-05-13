@@ -50,7 +50,6 @@ namespace CitroenAPI.Controllers
                
             }
 
-            // Start the service again if it was running
             if (_service.Status == ServiceControllerStatus.Stopped)
             {
                 Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
@@ -128,6 +127,8 @@ namespace CitroenAPI.Controllers
         public Task StopAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation($"Stop {cancellationToken} - Service was stopped");
+            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+            emailer.SendEmail("CitroenAPI Info", "Citroen se gasi");
             return Task.CompletedTask;
         }
     }

@@ -5,13 +5,6 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 IConfiguration configuration = (new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json").Build());
 
-// Add services to the container.
-
-////var emailConfig = builder.Configuration
-// //       .GetSection("EmailConfiguration")
-////        .Get<EmailConfiguration>();
-//builder.Services.AddSingleton(emailConfig);
-
 builder.Services.AddControllers();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

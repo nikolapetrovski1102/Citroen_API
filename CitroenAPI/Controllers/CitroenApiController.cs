@@ -14,8 +14,7 @@ using CitroenAPI.Logger;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Crypto.Parameters;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-
+using System.Data.SqlClient;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -25,16 +24,11 @@ namespace CitroenAPI.Controllers
     [ApiController]
     public class CitroenApiController : ControllerBase
     {
-        static IConfiguration configuration = (new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json").Build());
         private readonly CitroenDbContext _context;
         private readonly IWebHostEnvironment _hostingEnvironment;
-        private static int lastCount;
         string absolutePath;
         string absolutePathKEY;
         int callLimit = 0;
-        string certificatePath = configuration["Certifications:certificate"];
-        string pkFilePath = configuration["Certifications:pk"];
-        private Timer timer;
         private ILogger<CitroenApiController> _logger;
 
         public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger)
@@ -56,8 +50,8 @@ namespace CitroenAPI.Controllers
             {
                 _logger.LogInformation("--------------------------------------------------------------------------------");
                 _logger.LogInformation($"{nameof(Get)}");
-                string certificateFilePath = certificatePath;
-                string certificatePassword = pkFilePath;
+                string certificateFilePath = @".\certificate\MZPDFMAP.cer";
+                string certificatePassword = @".\certificate\MZPDFMAP.pk";
 
                 certificateFilePath = certificateFilePath.Replace(".\\", "");
                 certificatePassword = certificatePassword.Replace(".\\", "");
@@ -94,6 +88,7 @@ namespace CitroenAPI.Controllers
 
         private X509Certificate2 GetCert(string certPath, string keyPath)
         {
+            _logger.LogError(_hostingEnvironment.ContentRootPath + "\\certificate\\test.png");
             X509Certificate2 cert = new X509Certificate2(certPath);
             StreamReader reader = new StreamReader(keyPath);
             PemReader pemReader = new PemReader(reader);
@@ -101,7 +96,6 @@ namespace CitroenAPI.Controllers
             RSA rsa = DotNetUtilities.ToRSA(keyPair);
             cert = cert.CopyWithPrivateKey(rsa);
             return new X509Certificate2(cert.Export(X509ContentType.Pfx));
-
         }
 
         // POST api/<ValuesController>
@@ -175,10 +169,6 @@ namespace CitroenAPI.Controllers
                     _logger.LogInformation("--------------------------------------------------------------------------------");
                     foreach (Message msg in responseData.message)
                     {
-                        if (msg.gitId == "MTcxNTA3NTE2NE4yTmd1")
-                        {
-                            Console.WriteLine("asd");
-                        }
                         logs.GitId = msg.gitId;
                         logs.DispatchDate = msg.dispatchDate;
                         logs.CreatedDate = DateTime.Now;
@@ -235,6 +225,7 @@ namespace CitroenAPI.Controllers
 
         bool CheckLogs(Logs logsModel)
         {
+
             if (logsModel == null)
             {
                 return false;
