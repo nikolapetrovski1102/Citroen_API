@@ -14,7 +14,6 @@ using CitroenAPI.Logger;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Crypto.Parameters;
-using System.Data.SqlClient;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -29,6 +28,7 @@ namespace CitroenAPI.Controllers
         string absolutePath;
         string absolutePathKEY;
         int callLimit = 0;
+        RootObject callLogs = new RootObject();
         private ILogger<CitroenApiController> _logger;
 
         public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger)
@@ -117,7 +117,7 @@ namespace CitroenAPI.Controllers
                     DateTime date = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
 
 
-                    DateTime sevenDays = date.AddDays(-5);
+                    DateTime sevenDays = date.AddDays(-2);
 
 
                     var dateRange = new
@@ -164,24 +164,30 @@ namespace CitroenAPI.Controllers
                     }
 
                     Logs logs = new Logs();
-                    _logger.LogInformation("--------------------------------------------------------------------------------");
-                    _logger.LogInformation("Post method creating Logs");
-                    _logger.LogInformation("--------------------------------------------------------------------------------");
-                    foreach (Message msg in responseData.message)
+
+                    _logger.LogInformation("Check if there are any changes");
+                    _logger.LogInformation(responseData?.message?.Count.ToString());
+                    _logger.LogInformation(callLogs?.message?.Count.ToString());
+                    _logger.LogInformation("Check if there are any changes");
+
+                    if ((responseData?.message?.Count != callLogs?.message?.Count || callLogs?.message == null)
+                    && (callLogs?.message == null || !responseData.message[0].gitId.Equals(callLogs.message[0]?.gitId)))
                     {
-                        logs.GitId = msg.gitId;
-                        logs.DispatchDate = msg.dispatchDate;
-                        logs.CreatedDate = DateTime.Now;
-                        bool inserted = await AddLog(logs);
-                        if (inserted)
+                        foreach (Message msg in responseData.message)
                         {
-                            msg.leadData.gitId = msg.gitId;
-                            await PostAsync(msg.leadData, msg.preferredContactMethod);
+                            logs.GitId = msg.gitId;
+                            logs.DispatchDate = msg.dispatchDate;
+                            logs.CreatedDate = DateTime.Now;
+                            bool inserted = await AddLog(logs);
+                            if (inserted)
+                            {
+                                msg.leadData.gitId = msg.gitId;
+                                await PostAsync(msg.leadData, msg.preferredContactMethod);
+                            }
                         }
                     }
-                    _logger.LogInformation("--------------------------------------------------------------------------------");
-                    _logger.LogInformation("Post method formethod exit - Logs");
-                    _logger.LogInformation("--------------------------------------------------------------------------------");
+
+                    callLogs = responseData;
 
                     return response.StatusCode.ToString();
                 }
@@ -231,14 +237,22 @@ namespace CitroenAPI.Controllers
                 return false;
             }
 
-            Logs res = _context.Logs.FirstOrDefault(model => model.GitId.Equals(logsModel.GitId));
+            List<Logs> gitIdLogs = _context.Logs.ToList();
+            bool res = false;
 
-            if (res == null)
+            foreach (Logs log in gitIdLogs) 
             {
-                return true;
+                if (logsModel.GitId.Equals(log.GitId))
+                {
+                    return false;
+                }
+                else
+                {
+                    res = true;
+                }
             }
-            else
-                return false;
+
+            return res;
 
         }
 

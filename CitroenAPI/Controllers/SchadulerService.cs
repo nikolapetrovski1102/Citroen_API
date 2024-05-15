@@ -36,6 +36,7 @@ namespace CitroenAPI.Controllers
             _logger.LogInformation("Constructor call in the service");
             _logger.LogInformation("--------------------------------------------------------------------------------");
         }
+
         public void Dispose()
         {
             
@@ -46,7 +47,7 @@ namespace CitroenAPI.Controllers
                 Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
                 emailer.SendEmail("CitroenAPI Info", "Citroen se gasi");
                 _service.Stop();
-                _service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30)); // Wait for the service to stop
+                _service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(60));
                
             }
 
@@ -56,7 +57,7 @@ namespace CitroenAPI.Controllers
                 emailer.SendEmail("CitroenAPI INFO", "Citroen se restartira");
                 _logger.LogInformation("Restarting Service Again");
                 _service.Start();
-                _service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
+                _service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(60));
                 
             }
             else
@@ -129,6 +130,8 @@ namespace CitroenAPI.Controllers
             _logger.LogInformation($"Stop {cancellationToken} - Service was stopped");
             Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
             emailer.SendEmail("CitroenAPI Info", "Citroen se gasi");
+
+            Dispose();
             return Task.CompletedTask;
         }
     }
