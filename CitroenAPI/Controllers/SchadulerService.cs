@@ -41,24 +41,26 @@ namespace CitroenAPI.Controllers
         {
             
             _logger.LogInformation("Dispose method was called inside constructor");
-
+            _logger.LogInformation("Status -start..... " + _service.Status);
             if (_service.Status == ServiceControllerStatus.Running)
             {
+                _logger.LogInformation("Status -running..... " + _service.Status);
                 Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
                 emailer.SendEmail("CitroenAPI Info", "Citroen se gasi");
                 _service.Stop();
-                _service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(60));
-               
+                _service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+                _logger.LogInformation("Status -end running..... " + _service.Status);
             }
-
+            _logger.LogInformation("Status middle..... " + _service.Status);
             if (_service.Status == ServiceControllerStatus.Stopped)
             {
+                _logger.LogInformation("Status -stopped..... " + _service.Status);
                 Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
                 emailer.SendEmail("CitroenAPI INFO", "Citroen se restartira");
                 _logger.LogInformation("Restarting Service Again");
                 _service.Start();
-                _service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(60));
-                
+                _service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
+                _logger.LogInformation("Status -end stopped..... " + _service.Status);
             }
             else
             {
@@ -131,7 +133,7 @@ namespace CitroenAPI.Controllers
             Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
             emailer.SendEmail("CitroenAPI Info", "Citroen se gasi");
 
-            Dispose();
+          //  Dispose();
             return Task.CompletedTask;
         }
     }
