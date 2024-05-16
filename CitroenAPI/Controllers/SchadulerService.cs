@@ -17,6 +17,7 @@ namespace CitroenAPI.Controllers
         public IConfiguration _configuration { get; set; }
         private IServiceScopeFactory _scopeFactory;
         private Microsoft.AspNetCore.Hosting.IHostingEnvironment _environment;
+
         public SchadulerService(IServiceScopeFactory serviceScopeFactory,
             Microsoft.AspNetCore.Hosting.IHostingEnvironment environment, IConfiguration configuration, CitroenDbContext context,ILoggerFactory loggerFactory,ILogger<SchadulerService> logger)
         {

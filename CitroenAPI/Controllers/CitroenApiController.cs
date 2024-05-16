@@ -14,6 +14,7 @@ using CitroenAPI.Logger;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Crypto.Parameters;
+using Microsoft.Extensions.Configuration;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -23,20 +24,29 @@ namespace CitroenAPI.Controllers
     [ApiController]
     public class CitroenApiController : ControllerBase
     {
+        IConfiguration configuration = (new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json").Build());
         private readonly CitroenDbContext _context;
         private readonly IWebHostEnvironment _hostingEnvironment;
         string absolutePath;
         string absolutePathKEY;
         int callLimit = 0;
+        public IConfiguration _configuration { get; set; }
+        private EmailConfiguration emailConfig;
         RootObject callLogs = new RootObject();
         private ILogger<CitroenApiController> _logger;
         private static bool isRunning = false;
-        public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger)
+        public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger, IConfiguration configuration)
         {
             loggerFactory.AddFile(Path.Combine(Directory.GetCurrentDirectory(), "logs"));
             _context = context;
             _hostingEnvironment = hostingEnvironment;
             _logger = logger;
+            _configuration = configuration;
+            emailConfig = new EmailConfiguration();
+            emailConfig.From = _configuration["EmailConfiguration:From"];
+            emailConfig.UserName = _configuration["EmailConfiguration:Username"];
+            emailConfig.Password = _configuration["EmailConfiguration:Password"];
+            emailConfig.SmtpServer = _configuration["EmailConfiguration:SmtpServer"];
             _logger.LogInformation("Constructor was executed");
         }
 
@@ -46,8 +56,11 @@ namespace CitroenAPI.Controllers
         [HttpGet]
         private async Task<string> Get()
         {
+            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+
             try
             {
+
                 _logger.LogInformation("--------------------------------------------------------------------------------");
                 _logger.LogInformation($"{nameof(Get)}");
                 string certificateFilePath = @".\certificate\MZPDFMAP.cer";
@@ -80,6 +93,7 @@ namespace CitroenAPI.Controllers
             }
             catch (Exception ex)
             {
+                emailer.SendEmail("Citroen Info - Get Method eception -", ex.ToString());
                 _logger.LogError("Error was happening at get method " + ex.Message);
                 return ex.Message + " looking folder for: " + absolutePath;
 
@@ -100,8 +114,10 @@ namespace CitroenAPI.Controllers
 
         // POST api/<ValuesController>
         [HttpPost]
-        public async Task<string> Post()
+        private async Task<string> Post()
         {
+            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+
             if (isRunning == true) return "There is one instance Working";
             isRunning= true;
             _logger.LogInformation("--------------------------------------------------------------------------------");
@@ -161,6 +177,7 @@ namespace CitroenAPI.Controllers
                     }
                     catch (Exception ex)
                     {
+                        emailer.SendEmail("Citroen Info - Post Method eception -", ex.ToString());
                         Console.WriteLine(ex.ToString());
                         isRunning = false;
                         return null;
@@ -196,6 +213,7 @@ namespace CitroenAPI.Controllers
                 }
                 catch (HttpRequestException e)
                 {
+                    emailer.SendEmail("Citroen Info - Post Method eception -", e.ToString());
                     _logger.LogInformation("--------------------------------------------------------------------------------");
                     _logger.LogError("Post method error " + e.Message);
                     _logger.LogInformation("--------------------------------------------------------------------------------");
@@ -207,10 +225,25 @@ namespace CitroenAPI.Controllers
             }
         }
 
+        [HttpGet("GetLeads")]
+        public async Task GetLeads()
+        {
+            try
+            {
+                await Post();
+            }
+            catch (Exception ex)
+            {
+                Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+
+                emailer.SendEmail("Citroen Info - Post Method eception -", ex.ToString());
+            }
+        }
+
         [HttpPost("AddLog")]
         private async Task<bool> AddLog(Logs logModel)
         {
-
+            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
             if (CheckLogs(logModel))
             {
                 try
@@ -223,6 +256,7 @@ namespace CitroenAPI.Controllers
                 }
                 catch (DbException ex)
                 {
+                    emailer.SendEmail("Citroen Info - Post Method eception -", ex.ToString());
                     _logger.LogInformation("Error in AddLog " + ex.Message);
                     throw new Exception(ex.Message);
                 }
@@ -267,6 +301,7 @@ namespace CitroenAPI.Controllers
         [HttpPost("SalesForce")]
         private async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered)
         {
+            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Started sending leads to SF");
             StatusLeads sl = new StatusLeads();
@@ -359,6 +394,7 @@ namespace CitroenAPI.Controllers
             }
             catch (Exception ex)
             {
+                emailer.SendEmail("Citroen Info - Post SalesForce Method eception -", ex.ToString());
                 _logger.LogInformation("Lead to sf method exception: " + ex.Message);
                 if (ex.InnerException != null && callLimit < 3 && ex.InnerException.Message.Contains("No such host is known."))
                 {

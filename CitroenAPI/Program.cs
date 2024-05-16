@@ -14,7 +14,7 @@ builder.Services.AddDbContext<CitroenDbContext>(options =>
     options.UseSqlServer(configuration["ConnectionStrings:ConnectionString"].ToString()), ServiceLifetime.Singleton);
 
 
-builder.Services.AddSingleton<IHostedService, SchadulerService>();
+//builder.Services.AddSingleton<IHostedService, SchadulerService>();
 
 
 var app = builder.Build();
