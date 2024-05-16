@@ -30,7 +30,7 @@ namespace CitroenAPI.Controllers
         int callLimit = 0;
         RootObject callLogs = new RootObject();
         private ILogger<CitroenApiController> _logger;
-
+        private static bool isRunning = false;
         public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger)
         {
             loggerFactory.AddFile(Path.Combine(Directory.GetCurrentDirectory(), "logs"));
@@ -102,6 +102,8 @@ namespace CitroenAPI.Controllers
         [HttpPost]
         public async Task<string> Post()
         {
+            if (isRunning == true) return "There is one instance Working";
+            isRunning= true;
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Post method started");
             _logger.LogInformation("--------------------------------------------------------------------------------");
@@ -188,7 +190,7 @@ namespace CitroenAPI.Controllers
                     }
 
                     callLogs = responseData;
-
+                    isRunning = false;
                     return response.StatusCode.ToString();
                 }
                 catch (HttpRequestException e)
@@ -198,9 +200,11 @@ namespace CitroenAPI.Controllers
                     _logger.LogInformation("--------------------------------------------------------------------------------");
 
                     return e.Message.ToString();
+                    isRunning = false;
                 }
+              
             }
-
+            isRunning = false;
         }
 
         [HttpPost("AddLog")]
@@ -230,6 +234,8 @@ namespace CitroenAPI.Controllers
             }
 
         }
+
+        
 
         bool CheckLogs(Logs logsModel)
         {
