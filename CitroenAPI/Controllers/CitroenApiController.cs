@@ -211,6 +211,7 @@ namespace CitroenAPI.Controllers
             {
                 try
                 {
+                    _logger.LogInformation("logModel: " + logModel);
                     _context.Logs.Add(logModel);
 
                     await _context.SaveChangesAsync();
@@ -218,6 +219,7 @@ namespace CitroenAPI.Controllers
                 }
                 catch (DbException ex)
                 {
+                    _logger.LogInformation("Error in AddLog " + ex.Message);
                     throw new Exception(ex.Message);
                 }
 
