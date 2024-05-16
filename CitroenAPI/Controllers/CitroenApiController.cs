@@ -162,6 +162,7 @@ namespace CitroenAPI.Controllers
                     catch (Exception ex)
                     {
                         Console.WriteLine(ex.ToString());
+                        isRunning = false;
                         return null;
                     }
 
@@ -198,13 +199,12 @@ namespace CitroenAPI.Controllers
                     _logger.LogInformation("--------------------------------------------------------------------------------");
                     _logger.LogError("Post method error " + e.Message);
                     _logger.LogInformation("--------------------------------------------------------------------------------");
-
-                    return e.Message.ToString();
                     isRunning = false;
+                    return e.Message.ToString();
+                   
                 }
               
             }
-            isRunning = false;
         }
 
         [HttpPost("AddLog")]
