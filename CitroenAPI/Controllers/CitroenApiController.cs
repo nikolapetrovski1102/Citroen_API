@@ -14,7 +14,8 @@ using CitroenAPI.Logger;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Crypto.Parameters;
-using Microsoft.Extensions.Configuration;
+using System.ServiceProcess;
+using Microsoft.AspNetCore.Cors;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -22,9 +23,13 @@ namespace CitroenAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    
     public class CitroenApiController : ControllerBase
     {
+        private static bool isLogCreated = false;
+        private static readonly object logCreationLock = new object();
         IConfiguration configuration = (new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json").Build());
+        private readonly object postLock = new object();
         private readonly CitroenDbContext _context;
         private readonly IWebHostEnvironment _hostingEnvironment;
         string absolutePath;
@@ -32,32 +37,56 @@ namespace CitroenAPI.Controllers
         int callLimit = 0;
         public IConfiguration _configuration { get; set; }
         private EmailConfiguration emailConfig;
-        RootObject callLogs = new RootObject();
-        private ILogger<CitroenApiController> _logger;
+        static RootObject callLogs = new RootObject();
+        private readonly ILogger<CitroenApiController> _logger;
         private static bool isRunning = false;
+        private readonly Emailer _emailer;
+        private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+
         public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger, IConfiguration configuration)
         {
-            loggerFactory.AddFile(Path.Combine(Directory.GetCurrentDirectory(), "logs"));
+            lock (logCreationLock)
+            {
+                if (!isLogCreated)
+                {
+                    loggerFactory.AddFile(Path.Combine(Directory.GetCurrentDirectory(), "logs"));
+                    isLogCreated = true;
+                }
+            }
+
             _context = context;
             _hostingEnvironment = hostingEnvironment;
             _logger = logger;
             _configuration = configuration;
-            emailConfig = new EmailConfiguration();
-            emailConfig.From = _configuration["EmailConfiguration:From"];
-            emailConfig.UserName = _configuration["EmailConfiguration:Username"];
-            emailConfig.Password = _configuration["EmailConfiguration:Password"];
-            emailConfig.SmtpServer = _configuration["EmailConfiguration:SmtpServer"];
+
+            emailConfig = new EmailConfiguration
+            {
+                From = _configuration["EmailConfiguration:From"],
+                UserName = _configuration["EmailConfiguration:Username"],
+                Password = _configuration["EmailConfiguration:Password"],
+                SmtpServer = _configuration["EmailConfiguration:SmtpServer"],
+                Port = int.TryParse(_configuration["EmailConfiguration:Port"], out int port) ? port : 25
+            };
+
+            if (string.IsNullOrEmpty(emailConfig.From) || string.IsNullOrEmpty(emailConfig.UserName) ||
+                string.IsNullOrEmpty(emailConfig.Password) || string.IsNullOrEmpty(emailConfig.SmtpServer))
+            {
+                _logger.LogError("Email configuration is missing required values.");
+                throw new InvalidOperationException("Email configuration is not valid.");
+            }
+
+            _emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+
             _logger.LogInformation("Constructor was executed");
         }
 
         HttpListener.ExtendedProtectionSelector ExtendedProtectionSelector { get; set; }
         static X509Certificate2 clientCertificate;
+
         // GET: api/<ValuesController>
         [HttpGet]
         private async Task<string> Get()
-        {
-            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
-
+        { 
             try
             {
 
@@ -93,7 +122,7 @@ namespace CitroenAPI.Controllers
             }
             catch (Exception ex)
             {
-                emailer.SendEmail("Citroen Info - Get Method eception -", ex.ToString());
+                _emailer.SendEmail("Citroen Info - Get Method eception -", ex.ToString());
                 _logger.LogError("Error was happening at get method " + ex.Message);
                 return ex.Message + " looking folder for: " + absolutePath;
 
@@ -102,7 +131,6 @@ namespace CitroenAPI.Controllers
 
         private X509Certificate2 GetCert(string certPath, string keyPath)
         {
-            _logger.LogError(_hostingEnvironment.ContentRootPath + "\\certificate\\test.png");
             X509Certificate2 cert = new X509Certificate2(certPath);
             StreamReader reader = new StreamReader(keyPath);
             PemReader pemReader = new PemReader(reader);
@@ -114,29 +142,29 @@ namespace CitroenAPI.Controllers
 
         // POST api/<ValuesController>
         [HttpPost]
-        private async Task<string> Post()
+        private async Task<IActionResult> Post(CancellationToken cancellationToken)
         {
-            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+            if (isRunning)
+            {
+                return Ok("There is one instance Working");
+            }
 
-            if (isRunning == true) return "There is one instance Working";
-            isRunning= true;
+            isRunning = true;
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Post method started");
             _logger.LogInformation("--------------------------------------------------------------------------------");
 
             var handler = new HttpClientHandler();
             var resp = Get().Result;
-            clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
+            var clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
             handler.ClientCertificates.Add(clientCertificate);
+
             using (var httpClient = new HttpClient(new HttpLoggingHandler(handler)))
             {
                 try
                 {
                     DateTime date = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
-
-
-                    DateTime sevenDays = date.AddDays(-2);
-
+                    DateTime sevenDays = date.AddDays(-1);
 
                     var dateRange = new
                     {
@@ -148,53 +176,51 @@ namespace CitroenAPI.Controllers
                     TokenAuth tokenObject = JsonConvert.DeserializeObject<TokenAuth>(resp);
 
                     var content = new StringContent(jsonDate, Encoding.UTF8, "application/json");
-                    AuthenticationHeaderValue authHeader = new AuthenticationHeaderValue("Authorization", "Bearer " + tokenObject.access_token.Trim());
-                    HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://api-secure.forms.awsmpsa.com/formsv3/api/leads");
-                    request.Content = content;
+                    HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://api-secure.forms.awsmpsa.com/formsv3/api/leads")
+                    {
+                        Content = content
+                    };
                     request.Headers.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenObject.access_token.Trim());
 
-                    var response = await httpClient.SendAsync(request);
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var response = await httpClient.SendAsync(request, cancellationToken);
                     _logger.LogInformation("Post method Response: " + response.StatusCode);
                     string responseBody = await response.Content.ReadAsStringAsync();
 
-
                     if (response.StatusCode != HttpStatusCode.OK)
                     {
-
                         _logger.LogInformation("Post method no Leads");
-
                         _logger.LogInformation("Post method " + response.StatusCode.ToString());
-
-                        return "No new leads";
+                        return Ok("No new leads");
                     }
 
                     RootObject responseData;
-
                     try
                     {
                         responseData = JsonConvert.DeserializeObject<RootObject>(responseBody);
                     }
                     catch (Exception ex)
                     {
-                        emailer.SendEmail("Citroen Info - Post Method eception -", ex.ToString());
-                        Console.WriteLine(ex.ToString());
-                        isRunning = false;
-                        return null;
+                        _emailer.SendEmail("Citroen Info - Post Method exception -", ex.ToString());
+                        _logger.LogError(ex.ToString());
+                        return StatusCode(500, "Error processing response data.");
                     }
 
                     Logs logs = new Logs();
-
                     _logger.LogInformation("Check if there are any changes");
                     _logger.LogInformation(responseData?.message?.Count.ToString());
                     _logger.LogInformation(callLogs?.message?.Count.ToString());
                     _logger.LogInformation("Check if there are any changes");
 
                     if ((responseData?.message?.Count != callLogs?.message?.Count || callLogs?.message == null)
-                    && (callLogs?.message == null || !responseData.message[0].gitId.Equals(callLogs.message[0]?.gitId)))
+                        && (callLogs?.message == null || !responseData.message[0].gitId.Equals(callLogs.message[0]?.gitId)))
                     {
                         foreach (Message msg in responseData.message)
                         {
+                            cancellationToken.ThrowIfCancellationRequested();
+
                             logs.GitId = msg.gitId;
                             logs.DispatchDate = msg.dispatchDate;
                             logs.CreatedDate = DateTime.Now;
@@ -208,47 +234,87 @@ namespace CitroenAPI.Controllers
                     }
 
                     callLogs = responseData;
-                    isRunning = false;
-                    return response.StatusCode.ToString();
+                    return Ok(response.StatusCode.ToString());
                 }
                 catch (HttpRequestException e)
                 {
-                    emailer.SendEmail("Citroen Info - Post Method eception -", e.ToString());
+                    _emailer.SendEmail("Citroen Info - Post Method exception -", e.ToString());
                     _logger.LogInformation("--------------------------------------------------------------------------------");
                     _logger.LogError("Post method error " + e.Message);
                     _logger.LogInformation("--------------------------------------------------------------------------------");
-                    isRunning = false;
-                    return e.Message.ToString();
-                   
+                    return StatusCode(500, e.Message.ToString());
                 }
-              
+                catch (OperationCanceledException)
+                {
+                    _logger.LogInformation("Post method was canceled");
+                    return StatusCode(500, "Post method was canceled");
+                }
+                finally
+                {
+                    isRunning = false;
+                }
             }
         }
 
+
         [HttpGet("GetLeads")]
-        public async Task GetLeads()
+        public async Task<IActionResult> GetLeads()
         {
             try
             {
-                await Post();
+                lock (postLock)
+                {
+                    if (isRunning)
+                    {
+                        _logger.LogInformation("There is one instance Working");
+                        StopPost();
+                        return Conflict("There is one instance Working");
+                    }
+
+                    _logger.LogInformation("Calling post method");
+                    var res = Post(_cts.Token);
+
+                    if (res.Equals("Post method was canceled"))
+                    {
+                        _logger.LogInformation("Post method was canceled");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"{res}");
+                    }
+
+                    _logger.LogInformation("Post method finished");
+                    isLogCreated = true;
+                    return Ok(res);
+                }
             }
             catch (Exception ex)
             {
-                Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
-
-                emailer.SendEmail("Citroen Info - Post Method eception -", ex.ToString());
+                _emailer.SendEmail("Citroen Info - Post Method exception -", ex.ToString());
+                return StatusCode(500, "Internal server error");
             }
+        }
+
+        [HttpPost("StopPost")]
+        private IActionResult StopPost()
+        {
+            if (isRunning)
+            {
+                _cts.Cancel();
+                _logger.LogInformation("Cancellation requested for post method");
+                isRunning = false;
+                return Ok("Cancellation requested");
+            }
+            return Conflict("No post method is running");
         }
 
         [HttpPost("AddLog")]
         private async Task<bool> AddLog(Logs logModel)
         {
-            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
             if (CheckLogs(logModel))
             {
                 try
                 {
-                    _logger.LogInformation("logModel: " + logModel);
                     _context.Logs.Add(logModel);
 
                     await _context.SaveChangesAsync();
@@ -256,7 +322,7 @@ namespace CitroenAPI.Controllers
                 }
                 catch (DbException ex)
                 {
-                    emailer.SendEmail("Citroen Info - Post Method eception -", ex.ToString());
+                    _emailer.SendEmail("Citroen Info - Post Method eception -", ex.ToString());
                     _logger.LogInformation("Error in AddLog " + ex.Message);
                     throw new Exception(ex.Message);
                 }
@@ -279,7 +345,14 @@ namespace CitroenAPI.Controllers
                 return false;
             }
 
-            List<Logs> gitIdLogs = _context.Logs.ToList();
+            DateTime twoDaysAgoStart = DateTime.Now.AddDays(-2).Date;
+
+            DateTime now = DateTime.Now;
+
+            List<Logs> gitIdLogs = _context.Logs
+                .Where(model => model.CreatedDate >= twoDaysAgoStart && model.CreatedDate <= now)
+                .ToList();
+
             bool res = false;
 
             foreach (Logs log in gitIdLogs) 
@@ -301,10 +374,10 @@ namespace CitroenAPI.Controllers
         [HttpPost("SalesForce")]
         private async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered)
         {
-            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Started sending leads to SF");
             StatusLeads sl = new StatusLeads();
+
             try
             {
                 string salutation = data.customer.civility == null ? "--None--" : String.IsNullOrEmpty(Enums.GetEnumValue(data.customer.civility)) ? "--None-- " : Enums.GetEnumValue(data.customer.civility);
@@ -394,7 +467,7 @@ namespace CitroenAPI.Controllers
             }
             catch (Exception ex)
             {
-                emailer.SendEmail("Citroen Info - Post SalesForce Method eception -", ex.ToString());
+                _emailer.SendEmail("Citroen Info - Post SalesForce Method eception -", ex.ToString());
                 _logger.LogInformation("Lead to sf method exception: " + ex.Message);
                 if (ex.InnerException != null && callLimit < 3 && ex.InnerException.Message.Contains("No such host is known."))
                 {
@@ -412,5 +485,6 @@ namespace CitroenAPI.Controllers
 
             }
         }
+
     }
 }
