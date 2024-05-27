@@ -14,8 +14,6 @@ using CitroenAPI.Logger;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Crypto.Parameters;
-using System.ServiceProcess;
-using Microsoft.AspNetCore.Cors;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -142,7 +140,7 @@ namespace CitroenAPI.Controllers
 
         // POST api/<ValuesController>
         [HttpPost]
-        private async Task<IActionResult> Post(CancellationToken cancellationToken)
+        private async Task<IActionResult> Post()
         {
             if (isRunning)
             {
@@ -172,8 +170,18 @@ namespace CitroenAPI.Controllers
                         endDate = date.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz")
                     };
 
-                    string jsonDate = JsonConvert.SerializeObject(dateRange);
-                    TokenAuth tokenObject = JsonConvert.DeserializeObject<TokenAuth>(resp);
+                    string jsonDate = "";
+                    TokenAuth tokenObject = new TokenAuth();
+
+                    try
+                    {
+                        jsonDate = JsonConvert.SerializeObject(dateRange);
+                        tokenObject = JsonConvert.DeserializeObject<TokenAuth>(resp);
+                    }
+                    catch(Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString());
+                    }
 
                     var content = new StringContent(jsonDate, Encoding.UTF8, "application/json");
                     HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://api-secure.forms.awsmpsa.com/formsv3/api/leads")
@@ -183,9 +191,7 @@ namespace CitroenAPI.Controllers
                     request.Headers.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenObject.access_token.Trim());
 
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    var response = await httpClient.SendAsync(request, cancellationToken);
+                    var response = httpClient.Send(request);
                     _logger.LogInformation("Post method Response: " + response.StatusCode);
                     string responseBody = await response.Content.ReadAsStringAsync();
 
@@ -219,8 +225,6 @@ namespace CitroenAPI.Controllers
                     {
                         foreach (Message msg in responseData.message)
                         {
-                            cancellationToken.ThrowIfCancellationRequested();
-
                             logs.GitId = msg.gitId;
                             logs.DispatchDate = msg.dispatchDate;
                             logs.CreatedDate = DateTime.Now;
@@ -267,12 +271,11 @@ namespace CitroenAPI.Controllers
                     if (isRunning)
                     {
                         _logger.LogInformation("There is one instance Working");
-                        StopPost();
                         return Conflict("There is one instance Working");
                     }
 
                     _logger.LogInformation("Calling post method");
-                    var res = Post(_cts.Token);
+                    var res = Post();
 
                     if (res.Equals("Post method was canceled"))
                     {
@@ -295,18 +298,6 @@ namespace CitroenAPI.Controllers
             }
         }
 
-        [HttpPost("StopPost")]
-        private IActionResult StopPost()
-        {
-            if (isRunning)
-            {
-                _cts.Cancel();
-                _logger.LogInformation("Cancellation requested for post method");
-                isRunning = false;
-                return Ok("Cancellation requested");
-            }
-            return Conflict("No post method is running");
-        }
 
         [HttpPost("AddLog")]
         private async Task<bool> AddLog(Logs logModel)
@@ -353,7 +344,9 @@ namespace CitroenAPI.Controllers
                 .Where(model => model.CreatedDate >= twoDaysAgoStart && model.CreatedDate <= now)
                 .ToList();
 
-            bool res = false;
+            bool res = true;
+
+            if (gitIdLogs.Count == 0) return res;
 
             foreach (Logs log in gitIdLogs) 
             {
@@ -397,8 +390,15 @@ namespace CitroenAPI.Controllers
                         var replace = model.Replace('(', '_');
                         replace = replace.Replace(')', '_');
                         var split1 = replace.Split(' ');
-                        replace = split1[0] + split1[1];
-                        model = "Model_" + replace;
+                        if (split1.Length > 1)
+                        {
+                            replace = split1[0] + split1[1];
+                            model = "Model_" + replace;
+                        }
+                        else
+                        {
+                            model = "Model_" + replace;
+                        }
                     }
                     else
                     {
