@@ -30,8 +30,8 @@ namespace CitroenAPI.Controllers
         private readonly object postLock = new object();
         private readonly CitroenDbContext _context;
         private readonly IWebHostEnvironment _hostingEnvironment;
-        string absolutePath;
-        string absolutePathKEY;
+        private static string absolutePath;
+        private static string absolutePathKEY;
         int callLimit = 0;
         public IConfiguration _configuration { get; set; }
         private EmailConfiguration emailConfig;
@@ -82,7 +82,7 @@ namespace CitroenAPI.Controllers
         static X509Certificate2 clientCertificate;
 
         // GET: api/<ValuesController>
-        [HttpGet]
+       /* [HttpGet]
         private async Task<string> Get()
         { 
             try
@@ -125,8 +125,57 @@ namespace CitroenAPI.Controllers
                 return ex.Message + " looking folder for: " + absolutePath;
 
             }
-        }
+        }*/
+        [HttpGet]
+        private string Get()
+        {
+            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
 
+            try
+            {
+
+                _logger.LogInformation("--------------------------------------------------------------------------------");
+                _logger.LogInformation($"{nameof(Get)}");
+                string certificateFilePath = @".\certificate\MZPDFMAP.cer";
+                string certificatePassword = @".\certificate\MZPDFMAP.pk";
+
+                certificateFilePath = certificateFilePath.Replace(".\\", "");
+                certificatePassword = certificatePassword.Replace(".\\", "");
+
+                string currentDirectory = Environment.CurrentDirectory;
+
+                absolutePath = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificateFilePath);
+                absolutePathKEY = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificatePassword);
+
+                clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
+                _logger.LogInformation("Certificates passed");
+                var handler = new HttpClientHandler();
+                handler.ClientCertificates.Add(clientCertificate);
+
+                var loggingHandler = new HttpLoggingHandler(handler);
+
+                var client = new HttpClient(loggingHandler);
+                var requestUri = "https://api-secure.forms.awsmpsa.com/oauth/v2/token?client_id=5f7f179e7714a1005d204b43_2w88uv9394aok4g8gs0ccc4w4gwsskowck0gs0oo0sggw0kog0&client_secret=619ffmx8sn0g8ossso44wwok8scgoww00s8sogkw8w08cgc0wg&grant_type=password&username=ACMKPR&password=N9zTQ6v1";
+                var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+                client.DefaultRequestHeaders.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
+                _logger.LogInformation("Created client and handler");
+
+                var response = client.Send(request);
+                _logger.LogInformation($"Response: {response}");
+                response.EnsureSuccessStatusCode();
+
+                string text = response.Content.ReadAsStringAsync().Result;
+                TokenAuth tokenObject = JsonConvert.DeserializeObject<TokenAuth>(text);
+                return tokenObject.access_token;
+            }
+            catch (Exception ex)
+            {
+                emailer.SendEmail("Citroen Info - Get Method eception -", ex.ToString());
+                _logger.LogError("Error was happening at get method " + ex.Message);
+                return ex.Message + " looking folder for: " + absolutePath.ToString();
+
+            }
+        }
         private X509Certificate2 GetCert(string certPath, string keyPath)
         {
             X509Certificate2 cert = new X509Certificate2(certPath);
@@ -153,7 +202,7 @@ namespace CitroenAPI.Controllers
             _logger.LogInformation("--------------------------------------------------------------------------------");
 
             var handler = new HttpClientHandler();
-            var resp = Get().Result;
+            var resp = Get();
             var clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
             handler.ClientCertificates.Add(clientCertificate);
 
@@ -189,7 +238,7 @@ namespace CitroenAPI.Controllers
                         Content = content
                     };
                     request.Headers.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
-                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenObject.access_token.Trim());
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", resp.Trim().ToString()) ;
 
                     var response = httpClient.Send(request);
                     _logger.LogInformation("Post method Response: " + response.StatusCode);
