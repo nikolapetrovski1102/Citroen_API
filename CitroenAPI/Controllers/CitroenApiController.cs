@@ -14,6 +14,7 @@ using CitroenAPI.Logger;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Utilities;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -37,12 +38,15 @@ namespace CitroenAPI.Controllers
         private EmailConfiguration emailConfig;
         static RootObject callLogs = new RootObject();
         private readonly ILogger<CitroenApiController> _logger;
-        private static bool isRunning = false;
+       // private static bool isRunning = false;
+       private IsRunningInstance _isRunningInstance;
         private readonly Emailer _emailer;
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        private readonly int dateMinus = -3;
 
         public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger, IConfiguration configuration)
         {
+            _isRunningInstance=new IsRunningInstance();
             lock (logCreationLock)
             {
                 if (!isLogCreated)
@@ -191,12 +195,12 @@ namespace CitroenAPI.Controllers
         [HttpPost]
         private async Task<IActionResult> Post()
         {
-            if (isRunning)
+            if (_isRunningInstance.getIsRunning())
             {
                 return Ok("There is one instance Working");
             }
 
-            isRunning = true;
+            _isRunningInstance.SetIsRunning();
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Post method started");
             _logger.LogInformation("--------------------------------------------------------------------------------");
@@ -211,26 +215,18 @@ namespace CitroenAPI.Controllers
                 try
                 {
                     DateTime date = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
-                    DateTime sevenDays = date.AddDays(-1);
+                    DateTime sevenDays = date.AddDays(dateMinus);
 
                     var dateRange = new
                     {
                         startDate = sevenDays.ToString("yyyy-MM-ddT00:00:00.fffzzz"),
-                        endDate = date.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz")
+                        endDate = date.ToString("yyyy-MM-ddT23:59:ss.fffzzz")
                     };
 
                     string jsonDate = "";
                     TokenAuth tokenObject = new TokenAuth();
 
-                    try
-                    {
-                        jsonDate = JsonConvert.SerializeObject(dateRange);
-                        tokenObject = JsonConvert.DeserializeObject<TokenAuth>(resp);
-                    }
-                    catch(Exception ex)
-                    {
-                        Console.WriteLine(ex.ToString());
-                    }
+                    jsonDate = JsonConvert.SerializeObject(dateRange);
 
                     var content = new StringContent(jsonDate, Encoding.UTF8, "application/json");
                     HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://api-secure.forms.awsmpsa.com/formsv3/api/leads")
@@ -277,6 +273,9 @@ namespace CitroenAPI.Controllers
                             logs.GitId = msg.gitId;
                             logs.DispatchDate = msg.dispatchDate;
                             logs.CreatedDate = DateTime.Now;
+                            bool isexisting = false;
+                            if (logs.GitId.Equals("MTcxODEwMDAwMjJuNEhD"))
+                                isexisting = true;
                             bool inserted = await AddLog(logs);
                             if (inserted)
                             {
@@ -304,7 +303,7 @@ namespace CitroenAPI.Controllers
                 }
                 finally
                 {
-                    isRunning = false;
+                    _isRunningInstance.SetIsRunning();
                 }
             }
         }
@@ -317,7 +316,7 @@ namespace CitroenAPI.Controllers
             {
                 lock (postLock)
                 {
-                    if (isRunning)
+                    if (_isRunningInstance.getIsRunning())
                     {
                         _logger.LogInformation("There is one instance Working");
                         return Conflict("There is one instance Working");
@@ -375,7 +374,7 @@ namespace CitroenAPI.Controllers
 
         }
 
-        
+        private List<Logs>gitIdLogs;
 
         bool CheckLogs(Logs logsModel)
         {
@@ -385,14 +384,14 @@ namespace CitroenAPI.Controllers
                 return false;
             }
 
-            DateTime twoDaysAgoStart = DateTime.Now.AddDays(-2).Date;
+            DateTime twoDaysAgoStart = DateTime.Now.AddDays(dateMinus-1).Date;
 
             DateTime now = DateTime.Now;
-
-            List<Logs> gitIdLogs = _context.Logs
-                .Where(model => model.CreatedDate >= twoDaysAgoStart && model.CreatedDate <= now)
-                .ToList();
-
+            if(gitIdLogs==null)
+                gitIdLogs  = _context.Logs
+                    .Where(model => model.CreatedDate >= twoDaysAgoStart && model.CreatedDate <= now)
+                    .ToList();
+        
             bool res = true;
 
             if (gitIdLogs.Count == 0) return res;
