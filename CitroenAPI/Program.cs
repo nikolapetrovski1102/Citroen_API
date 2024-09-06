@@ -15,7 +15,12 @@ builder.Services.AddDbContext<CitroenDbContext>(options =>
 
 
 //builder.Services.AddSingleton<IHostedService, SchadulerService>();
+// Register the log cleanup service
+string logDirectory = Path.Combine(Directory.GetCurrentDirectory(), "logs");
+builder.Services.AddSingleton(new LogCleanupService(logDirectory));
 
+// Register the background service
+builder.Services.AddHostedService<LogCleanupBackgroundService>();
 
 var app = builder.Build();
 

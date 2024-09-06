@@ -20,179 +20,183 @@ using Org.BouncyCastle.Utilities;
 
 namespace CitroenAPI.Controllers
 {
+
+ 
+    #endregion
     [Route("api/[controller]")]
     [ApiController]
-    
-    public class CitroenApiController : ControllerBase
-    {
-        private static bool isLogCreated = false;
-        private static readonly object logCreationLock = new object();
-        IConfiguration configuration = (new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json").Build());
-        private readonly object postLock = new object();
-        private readonly CitroenDbContext _context;
-        private readonly IWebHostEnvironment _hostingEnvironment;
-        private static string absolutePath;
-        private static string absolutePathKEY;
-        int callLimit = 0;
-        public IConfiguration _configuration { get; set; }
-        private EmailConfiguration emailConfig;
-        static RootObject callLogs = new RootObject();
-        private readonly ILogger<CitroenApiController> _logger;
-       // private static bool isRunning = false;
-       private IsRunningInstance _isRunningInstance;
-        private readonly Emailer _emailer;
-        private readonly CancellationTokenSource _cts = new CancellationTokenSource();
-        private readonly int dateMinus = -3;
 
-        public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger, IConfiguration configuration)
+    public class CitroenApiController : ControllerBase
         {
-            _isRunningInstance=new IsRunningInstance();
-            lock (logCreationLock)
+            private static bool isLogCreated = false;
+            private static readonly object logCreationLock = new object();
+            IConfiguration configuration = (new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json").Build());
+            private readonly object postLock = new object();
+            private readonly CitroenDbContext _context;
+            private readonly IWebHostEnvironment _hostingEnvironment;
+            private static string absolutePath;
+            private static string absolutePathKEY;
+            int callLimit = 0;
+            public IConfiguration _configuration { get; set; }
+            private EmailConfiguration emailConfig;
+            static RootObject callLogs = new RootObject();
+            private readonly ILogger<CitroenApiController> _logger;
+            private IsRunningInstance _isRunningInstance;
+            private readonly Emailer _emailer;
+            private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+            private readonly int dateMinus = -2;
+
+            public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger, IConfiguration configuration)
             {
-                if (!isLogCreated)
+                _isRunningInstance = new IsRunningInstance();
+                lock (logCreationLock)
                 {
-                    loggerFactory.AddFile(Path.Combine(Directory.GetCurrentDirectory(), "logs"));
-                    isLogCreated = true;
+                    if (!isLogCreated)
+                    {
+                        loggerFactory.AddFile(Path.Combine(Directory.GetCurrentDirectory(), "logs"));
+                        isLogCreated = true;
+                    }
+                }
+
+                _context = context;
+                _hostingEnvironment = hostingEnvironment;
+                _logger = logger;
+                _configuration = configuration;
+
+                emailConfig = new EmailConfiguration
+                {
+                    From = _configuration["EmailConfiguration:From"],
+                    UserName = _configuration["EmailConfiguration:Username"],
+                    Password = _configuration["EmailConfiguration:Password"],
+                    SmtpServer = _configuration["EmailConfiguration:SmtpServer"],
+                    Port = int.TryParse(_configuration["EmailConfiguration:Port"], out int port) ? port : 25
+                };
+
+                if (string.IsNullOrEmpty(emailConfig.From) || string.IsNullOrEmpty(emailConfig.UserName) ||
+                    string.IsNullOrEmpty(emailConfig.Password) || string.IsNullOrEmpty(emailConfig.SmtpServer))
+                {
+                    _logger.LogError("Email configuration is missing required values.");
+                    throw new InvalidOperationException("Email configuration is not valid.");
+                }
+
+                _emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+
+                _logger.LogInformation("Constructor was executed");
+
+                // Log user profile info
+                _logger.LogInformation("User: " + Environment.UserName);
+                _logger.LogInformation("User profile path: " + Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+            }
+
+            HttpListener.ExtendedProtectionSelector ExtendedProtectionSelector { get; set; }
+            static X509Certificate2 clientCertificate;
+
+
+        [HttpGet]
+            private string Get()
+            {
+                Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+
+                try
+                {
+                    _logger.LogInformation("--------------------------------------------------------------------------------");
+                    _logger.LogInformation($"{nameof(Get)}");
+
+                    string certificateFilePath = @".\certificate\MZPDFMAP.cer";
+                    string certificatePassword = @".\certificate\MZPDFMAP.pk";
+
+                    certificateFilePath = certificateFilePath.Replace(".\\", "");
+                    certificatePassword = certificatePassword.Replace(".\\", "");
+
+                    string currentDirectory = Environment.CurrentDirectory;
+
+                    absolutePath = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificateFilePath);
+                    absolutePathKEY = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificatePassword);
+
+                    // Check if files exist and log if not
+                    if (!System.IO.File.Exists(absolutePath))
+                    {
+                        throw new FileNotFoundException("Certificate file not found", absolutePath);
+                    }
+
+                    if (!System.IO.File.Exists(absolutePathKEY))
+                    {
+                        throw new FileNotFoundException("Certificate key file not found", absolutePathKEY);
+                    }
+
+                    clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
+                    _logger.LogInformation("Certificates passed");
+
+                    var handler = new HttpClientHandler();
+                    handler.ClientCertificates.Add(clientCertificate);
+
+                    var loggingHandler = new HttpLoggingHandler(handler);
+                    var client = new HttpClient(loggingHandler);
+
+                    var requestUri = "https://api-secure.forms.awsmpsa.com/oauth/v2/token?client_id=5f7f179e7714a1005d204b43_2w88uv9394aok4g8gs0ccc4w4gwsskowck0gs0oo0sggw0kog0&client_secret=619ffmx8sn0g8ossso44wwok8scgoww00s8sogkw8w08cgc0wg&grant_type=password&username=ACMKPR&password=N9zTQ6v1";
+                    var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+                    client.DefaultRequestHeaders.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
+
+                    _logger.LogInformation("Created client and handler");
+                    var response = client.Send(request);
+                    _logger.LogInformation($"Response: {response}");
+                    response.EnsureSuccessStatusCode();
+
+                    string text = response.Content.ReadAsStringAsync().Result;
+                    TokenAuth tokenObject = new TokenAuth();
+                try
+                {
+                    tokenObject = JsonConvert.DeserializeObject<TokenAuth>(text);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError("File not found: " + ex.Message);
+                    emailer.SendEmail("Citroen Info - File not found", ex.ToString());
+                    return "Error: " + ex.Message;
+                }
+                    return tokenObject.access_token;
+                }
+                catch (FileNotFoundException fileEx)
+                {
+                    _logger.LogError("File not found: " + fileEx.Message);
+                    emailer.SendEmail("Citroen Info - File not found", fileEx.ToString());
+                    return "Error: " + fileEx.Message;
+                }
+                catch (UnauthorizedAccessException authEx)
+                {
+                    _logger.LogError("Unauthorized access: " + authEx.Message);
+                    emailer.SendEmail("Citroen Info - Unauthorized access", authEx.ToString());
+                    return "Error: " + authEx.Message;
+                }
+                catch (Exception ex)
+                {
+                    emailer.SendEmail("Citroen Info - Get Method exception", ex.ToString());
+                    _logger.LogError("Error was happening at get method " + ex.Message);
+                    return "Error: " + ex.Message + " looking folder for: " + absolutePath;
                 }
             }
 
-            _context = context;
-            _hostingEnvironment = hostingEnvironment;
-            _logger = logger;
-            _configuration = configuration;
-
-            emailConfig = new EmailConfiguration
+            private X509Certificate2 GetCert(string certPath, string keyPath)
             {
-                From = _configuration["EmailConfiguration:From"],
-                UserName = _configuration["EmailConfiguration:Username"],
-                Password = _configuration["EmailConfiguration:Password"],
-                SmtpServer = _configuration["EmailConfiguration:SmtpServer"],
-                Port = int.TryParse(_configuration["EmailConfiguration:Port"], out int port) ? port : 25
-            };
-
-            if (string.IsNullOrEmpty(emailConfig.From) || string.IsNullOrEmpty(emailConfig.UserName) ||
-                string.IsNullOrEmpty(emailConfig.Password) || string.IsNullOrEmpty(emailConfig.SmtpServer))
-            {
-                _logger.LogError("Email configuration is missing required values.");
-                throw new InvalidOperationException("Email configuration is not valid.");
+                X509Certificate2 cert = new X509Certificate2(certPath);
+                StreamReader reader = new StreamReader(keyPath);
+                PemReader pemReader = new PemReader(reader);
+                RsaPrivateCrtKeyParameters keyPair = (RsaPrivateCrtKeyParameters)pemReader.ReadObject();
+                RSA rsa = DotNetUtilities.ToRSA(keyPair);
+                cert = cert.CopyWithPrivateKey(rsa);
+                return new X509Certificate2(cert.Export(X509ContentType.Pfx));
             }
 
-            _emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+            // Other methods (Post, PostAsync, AddLog, etc.) remain unchanged
+        
+    
 
-            _logger.LogInformation("Constructor was executed");
-        }
 
-        HttpListener.ExtendedProtectionSelector ExtendedProtectionSelector { get; set; }
-        static X509Certificate2 clientCertificate;
 
-        // GET: api/<ValuesController>
-       /* [HttpGet]
-        private async Task<string> Get()
-        { 
-            try
-            {
 
-                _logger.LogInformation("--------------------------------------------------------------------------------");
-                _logger.LogInformation($"{nameof(Get)}");
-                string certificateFilePath = @".\certificate\MZPDFMAP.cer";
-                string certificatePassword = @".\certificate\MZPDFMAP.pk";
 
-                certificateFilePath = certificateFilePath.Replace(".\\", "");
-                certificatePassword = certificatePassword.Replace(".\\", "");
-
-                string currentDirectory = Environment.CurrentDirectory;
-
-                absolutePath = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificateFilePath);
-                absolutePathKEY = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificatePassword);
-
-                clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
-                _logger.LogInformation("Certificates passed");
-                var handler = new HttpClientHandler();
-                handler.ClientCertificates.Add(clientCertificate);
-
-                var loggingHandler = new HttpLoggingHandler(handler);
-
-                var client = new HttpClient(loggingHandler);
-                client.DefaultRequestHeaders.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
-                _logger.LogInformation("Created client and handler");
-                var requestUri = "https://api-secure.forms.awsmpsa.com/oauth/v2/token?client_id=5f7f179e7714a1005d204b43_2w88uv9394aok4g8gs0ccc4w4gwsskowck0gs0oo0sggw0kog0&client_secret=619ffmx8sn0g8ossso44wwok8scgoww00s8sogkw8w08cgc0wg&grant_type=password&username=ACMKPR&password=N9zTQ6v1";
-                var response = await client.GetAsync(requestUri);
-                _logger.LogInformation($"Response: {response}");
-                response.EnsureSuccessStatusCode();
-
-                return await response.Content.ReadAsStringAsync();
-            }
-            catch (Exception ex)
-            {
-                _emailer.SendEmail("Citroen Info - Get Method eception -", ex.ToString());
-                _logger.LogError("Error was happening at get method " + ex.Message);
-                return ex.Message + " looking folder for: " + absolutePath;
-
-            }
-        }*/
-        [HttpGet]
-        private string Get()
-        {
-            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
-
-            try
-            {
-
-                _logger.LogInformation("--------------------------------------------------------------------------------");
-                _logger.LogInformation($"{nameof(Get)}");
-                string certificateFilePath = @".\certificate\MZPDFMAP.cer";
-                string certificatePassword = @".\certificate\MZPDFMAP.pk";
-
-                certificateFilePath = certificateFilePath.Replace(".\\", "");
-                certificatePassword = certificatePassword.Replace(".\\", "");
-
-                string currentDirectory = Environment.CurrentDirectory;
-
-                absolutePath = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificateFilePath);
-                absolutePathKEY = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificatePassword);
-
-                clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
-                _logger.LogInformation("Certificates passed");
-                var handler = new HttpClientHandler();
-                handler.ClientCertificates.Add(clientCertificate);
-
-                var loggingHandler = new HttpLoggingHandler(handler);
-
-                var client = new HttpClient(loggingHandler);
-                var requestUri = "https://api-secure.forms.awsmpsa.com/oauth/v2/token?client_id=5f7f179e7714a1005d204b43_2w88uv9394aok4g8gs0ccc4w4gwsskowck0gs0oo0sggw0kog0&client_secret=619ffmx8sn0g8ossso44wwok8scgoww00s8sogkw8w08cgc0wg&grant_type=password&username=ACMKPR&password=N9zTQ6v1";
-                var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
-                client.DefaultRequestHeaders.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
-                _logger.LogInformation("Created client and handler");
-
-                var response = client.Send(request);
-                _logger.LogInformation($"Response: {response}");
-                response.EnsureSuccessStatusCode();
-
-                string text = response.Content.ReadAsStringAsync().Result;
-                TokenAuth tokenObject = JsonConvert.DeserializeObject<TokenAuth>(text);
-                return tokenObject.access_token;
-            }
-            catch (Exception ex)
-            {
-                emailer.SendEmail("Citroen Info - Get Method eception -", ex.ToString());
-                _logger.LogError("Error was happening at get method " + ex.Message);
-                return ex.Message + " looking folder for: " + absolutePath.ToString();
-
-            }
-        }
-        private X509Certificate2 GetCert(string certPath, string keyPath)
-        {
-            X509Certificate2 cert = new X509Certificate2(certPath);
-            StreamReader reader = new StreamReader(keyPath);
-            PemReader pemReader = new PemReader(reader);
-            RsaPrivateCrtKeyParameters keyPair = (RsaPrivateCrtKeyParameters)pemReader.ReadObject();
-            RSA rsa = DotNetUtilities.ToRSA(keyPair);
-            cert = cert.CopyWithPrivateKey(rsa);
-            return new X509Certificate2(cert.Export(X509ContentType.Pfx));
-        }
-
-        // POST api/<ValuesController>
-        [HttpPost]
+    // POST api/<ValuesController>
+    [HttpPost]
         private async Task<IActionResult> Post()
         {
             if (_isRunningInstance.getIsRunning())
@@ -534,5 +538,10 @@ namespace CitroenAPI.Controllers
             }
         }
 
+
+
+
     }
+
+
 }
