@@ -23,17 +23,59 @@ public class CitroenDbContext : DbContext
     {
         modelBuilder.Entity<Logs>(entity =>
         {
-            entity.HasKey(e => e.GitId);
-            entity.Property(e => e.GitId)
-                .IsRequired()
-                .HasMaxLength(255);
 
+            // Primary Key - GitId
+            entity.HasKey(e => e.GitId);
+
+            entity.Property(e => e.GitId)
+                .IsRequired()    // Not Null
+                .HasMaxLength(255);  // varchar(255)
+
+            // Required Fields
             entity.Property(e => e.DispatchDate)
-                .IsRequired();
+                .IsRequired()    // Not Null
+                .HasColumnType("datetime");  // datetime in SQL
 
             entity.Property(e => e.CreatedDate)
-                .IsRequired();
+                .IsRequired()    // Not Null
+                .HasColumnType("datetime");  // datetime in SQL
 
+            // Nullable Fields
+            entity.Property(e => e.Name)
+                .HasMaxLength(255)  // varchar(255)
+                .IsRequired(false);  // Nullable
+
+            entity.Property(e => e.FamilyName)
+                .HasMaxLength(255)  // varchar(255)
+                .IsRequired(false);  // Nullable
+
+            entity.Property(e => e.Phone)
+                .HasMaxLength(30)  // varchar(255)
+                .IsRequired(false);  // Nullable
+
+            entity.Property(e => e.Email)
+                .HasMaxLength(255)  // varchar(255)
+                .IsRequired(false);  // Nullable
+
+            entity.Property(e => e.RequestType)
+                .HasMaxLength(150)  // varchar(255)
+                .IsRequired(false);  // Nullable
+
+            entity.Property(e => e.Model)
+                .HasMaxLength(150)  // varchar(255)
+                .IsRequired(false);  // Nullable
+
+            entity.Property(e => e.Dealer)
+                .HasMaxLength(255)  // varchar(255)
+                .IsRequired(false);  // Nullable
+
+            entity.Property(e => e.Consents)
+                .HasMaxLength(255)  // varchar(255)
+                .IsRequired(false);  // Nullable
+
+            entity.Property(e => e.Comments)
+             .HasColumnType("text")// varchar(255)
+                .IsRequired(false);  // Nullable
         });
 
         modelBuilder.Entity<StatusLeads>(entitiy =>

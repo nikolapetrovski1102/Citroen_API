@@ -15,6 +15,8 @@ using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Utilities;
+using Microsoft.VisualBasic;
+using Microsoft.AspNetCore.Components;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -22,8 +24,7 @@ namespace CitroenAPI.Controllers
 {
 
  
-    #endregion
-    [Route("api/[controller]")]
+    [Microsoft.AspNetCore.Components.Route("api/[controller]")]
     [ApiController]
 
     public class CitroenApiController : ControllerBase
@@ -277,14 +278,17 @@ namespace CitroenAPI.Controllers
                             logs.GitId = msg.gitId;
                             logs.DispatchDate = msg.dispatchDate;
                             logs.CreatedDate = DateTime.Now;
-                            bool isexisting = false;
-                            if (logs.GitId.Equals("MTcxODEwMDAwMjJuNEhD"))
-                                isexisting = true;
+
                             bool inserted = await AddLog(logs);
                             if (inserted)
                             {
+                               msg.leadData.gitId = msg.gitId;
+                              await PostAsync(msg.leadData, msg.preferredContactMethod,msg.dispatchDate);
+                            }
+                            else
+                            {
                                 msg.leadData.gitId = msg.gitId;
-                                await PostAsync(msg.leadData, msg.preferredContactMethod);
+                                await PostAsync(msg.leadData, msg.preferredContactMethod, msg.dispatchDate);
                             }
                         }
                     }
@@ -350,25 +354,12 @@ namespace CitroenAPI.Controllers
             }
         }
 
-
         [HttpPost("AddLog")]
         private async Task<bool> AddLog(Logs logModel)
         {
             if (CheckLogs(logModel))
             {
-                try
-                {
-                    _context.Logs.Add(logModel);
-
-                    await _context.SaveChangesAsync();
-                    return true;
-                }
-                catch (DbException ex)
-                {
-                    _emailer.SendEmail("Citroen Info - Post Method eception -", ex.ToString());
-                    _logger.LogInformation("Error in AddLog " + ex.Message);
-                    throw new Exception(ex.Message);
-                }
+                return true;
 
             }
             else
@@ -378,7 +369,7 @@ namespace CitroenAPI.Controllers
 
         }
 
-        private List<Logs>gitIdLogs;
+        private List<Logs> gitIdLogs;
 
         bool CheckLogs(Logs logsModel)
         {
@@ -388,19 +379,19 @@ namespace CitroenAPI.Controllers
                 return false;
             }
 
-            DateTime twoDaysAgoStart = DateTime.Now.AddDays(dateMinus-1).Date;
+            DateTime twoDaysAgoStart = DateTime.Now.AddDays(dateMinus - 1).Date;
 
             DateTime now = DateTime.Now;
-            if(gitIdLogs==null)
-                gitIdLogs  = _context.Logs
+            if (gitIdLogs == null)
+                gitIdLogs = _context.Logs
                     .Where(model => model.CreatedDate >= twoDaysAgoStart && model.CreatedDate <= now)
                     .ToList();
-        
+
             bool res = true;
 
             if (gitIdLogs.Count == 0) return res;
 
-            foreach (Logs log in gitIdLogs) 
+            foreach (Logs log in gitIdLogs)
             {
                 if (logsModel.GitId.Equals(log.GitId))
                 {
@@ -417,7 +408,7 @@ namespace CitroenAPI.Controllers
         }
 
         [HttpPost("SalesForce")]
-        private async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered)
+        private async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered,DateTime dispatch)
         {
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Started sending leads to SF");
@@ -483,6 +474,33 @@ namespace CitroenAPI.Controllers
                     consents = "";
                 }
 
+             
+                
+                try
+                {
+                    Logs logModel = new Logs();
+                    logModel.GitId = data.gitId;
+                    logModel.DispatchDate = dispatch;
+                    logModel.CreatedDate = DateTime.Now;
+                    logModel.Email = data.customer.email;
+                    logModel.Phone = mobilePhone;
+                    logModel.Name = data.customer.firstname;
+                    logModel.FamilyName = data.customer.lastname;
+                    logModel.Comments = commetns;
+                    logModel.Consents = consents;
+                    logModel.Model = model;
+                    logModel.Dealer = dealers;
+                    logModel.RequestType = requestType;
+                    _context.Logs.Add(logModel);
+
+                 //   await _context.SaveChangesAsync();
+                }
+                catch (DbException ex)
+                {
+                    _emailer.SendEmail("Citroen Info - Post Method eception -", ex.ToString());
+                    _logger.LogInformation("Error in AddLog " + ex.Message);
+                }
+
                 string url = "https://webto.salesforce.com/servlet/servlet.WebToLead?eencoding=UTF-8&orgId=00D7Q000004shjs" +
                     "&salutation=" + salutation +
                     "&first_name=" + data.customer.firstname +
@@ -502,14 +520,13 @@ namespace CitroenAPI.Controllers
                 var request = new HttpRequestMessage(HttpMethod.Post, url);
 
                 request.Headers.Add("Cookie", "BrowserId=asdasdasdasdasda");
-                var response = await client.SendAsync(request);
-                _logger.LogInformation("Lead response: " + response.StatusCode);
-                response.EnsureSuccessStatusCode();
+               // var response = await client.SendAsync(request);
+               // _logger.LogInformation("Lead response: " + response.StatusCode);
+               // response.EnsureSuccessStatusCode();
 
                 sl.GitId = data.gitId;
                 sl.Status = 200;
                 sl.SentDate = DateTime.Now;
-
                 _context.StatusLeads.Add(sl);
 
                 _context.SaveChanges();
@@ -524,12 +541,13 @@ namespace CitroenAPI.Controllers
                 if (ex.InnerException != null && callLimit < 3 && ex.InnerException.Message.Contains("No such host is known."))
                 {
                     callLimit++;
-                    PostAsync(data, prefered);
+                    PostAsync(data, prefered,dispatch);
                 }
 
                 sl.GitId = data.gitId;
                 sl.Status = 500;
                 sl.SentDate = DateTime.Now;
+           
 
                 _context.StatusLeads.Add(sl);
 
