@@ -283,12 +283,7 @@ namespace CitroenAPI.Controllers
                             if (inserted)
                             {
                                msg.leadData.gitId = msg.gitId;
-                              await PostAsync(msg.leadData, msg.preferredContactMethod,msg.dispatchDate);
-                            }
-                            else
-                            {
-                                msg.leadData.gitId = msg.gitId;
-                                await PostAsync(msg.leadData, msg.preferredContactMethod, msg.dispatchDate);
+                              await PostAsync(msg.leadData, msg.preferredContactMethod, logs);
                             }
                         }
                     }
@@ -408,7 +403,7 @@ namespace CitroenAPI.Controllers
         }
 
         [HttpPost("SalesForce")]
-        private async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered,DateTime dispatch)
+        private async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered, Logs logModel)
         {
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Started sending leads to SF");
@@ -478,10 +473,6 @@ namespace CitroenAPI.Controllers
                 
                 try
                 {
-                    Logs logModel = new Logs();
-                    logModel.GitId = data.gitId;
-                    logModel.DispatchDate = dispatch;
-                    logModel.CreatedDate = DateTime.Now;
                     logModel.Email = data.customer.email;
                     logModel.Phone = mobilePhone;
                     logModel.Name = data.customer.firstname;
@@ -493,9 +484,9 @@ namespace CitroenAPI.Controllers
                     logModel.RequestType = requestType;
                     _context.Logs.Add(logModel);
 
-                 //   await _context.SaveChangesAsync();
+                    await _context.SaveChangesAsync();
                 }
-                catch (DbException ex)
+                catch (Exception ex)
                 {
                     _emailer.SendEmail("Citroen Info - Post Method eception -", ex.ToString());
                     _logger.LogInformation("Error in AddLog " + ex.Message);
@@ -541,7 +532,7 @@ namespace CitroenAPI.Controllers
                 if (ex.InnerException != null && callLimit < 3 && ex.InnerException.Message.Contains("No such host is known."))
                 {
                     callLimit++;
-                    PostAsync(data, prefered,dispatch);
+                    PostAsync(data, prefered, logModel);
                 }
 
                 sl.GitId = data.gitId;
