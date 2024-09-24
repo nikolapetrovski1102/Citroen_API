@@ -210,7 +210,6 @@ namespace CitroenAPI.Controllers
                 _isRunningInstance.SetIsRunning();
             }
 
-            _isRunningInstance.SetIsRunning();
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Post method started");
             _logger.LogInformation("--------------------------------------------------------------------------------");
