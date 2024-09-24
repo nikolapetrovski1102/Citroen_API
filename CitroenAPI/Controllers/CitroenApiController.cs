@@ -80,6 +80,7 @@ namespace CitroenAPI.Controllers
                     throw new InvalidOperationException("Email configuration is not valid.");
                 }
 
+                dateMinus = int.Parse(_configuration["dateMinus"]);
                 _emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
 
                 _logger.LogInformation("Constructor was executed");
@@ -200,9 +201,13 @@ namespace CitroenAPI.Controllers
     [HttpPost]
         private async Task<IActionResult> Post()
         {
-            if (_isRunningInstance.getIsRunning())
+            lock (postLock)
             {
-                return Ok("There is one instance Working");
+                if (_isRunningInstance.getIsRunning())
+                {
+                    return Ok("There is one instance Working");
+                }
+                _isRunningInstance.SetIsRunning();
             }
 
             _isRunningInstance.SetIsRunning();
@@ -275,6 +280,10 @@ namespace CitroenAPI.Controllers
                     {
                         foreach (Message msg in responseData.message)
                         {
+                            if (msg.gitId == "MTcyNzE1OTAwNFZXOTFZ")
+                            {
+                                Console.WriteLine();
+                            }
                             logs.GitId = msg.gitId;
                             logs.DispatchDate = msg.dispatchDate;
                             logs.CreatedDate = DateTime.Now;
@@ -306,7 +315,10 @@ namespace CitroenAPI.Controllers
                 }
                 finally
                 {
-                    _isRunningInstance.SetIsRunning();
+                    lock (postLock)
+                    {
+                        _isRunningInstance.SetIsRunning();
+                    }
                 }
             }
         }
@@ -315,37 +327,20 @@ namespace CitroenAPI.Controllers
         [HttpGet("GetLeads")]
         public async Task<IActionResult> GetLeads()
         {
-            try
+            lock (postLock)
             {
-                lock (postLock)
+                if (_isRunningInstance.getIsRunning())
                 {
-                    if (_isRunningInstance.getIsRunning())
-                    {
-                        _logger.LogInformation("There is one instance Working");
-                        return Conflict("There is one instance Working");
-                    }
-
-                    _logger.LogInformation("Calling post method");
-                    var res = Post();
-
-                    if (res.Equals("Post method was canceled"))
-                    {
-                        _logger.LogInformation("Post method was canceled");
-                    }
-                    else
-                    {
-                        _logger.LogInformation($"{res}");
-                    }
-
-                    _logger.LogInformation("Post method finished");
-                    isLogCreated = true;
-                    return Ok(res);
+                    _logger.LogInformation("There is one instance Working");
+                    return Conflict("There is one instance Working");
                 }
-            }
-            catch (Exception ex)
-            {
-                _emailer.SendEmail("Citroen Info - Post Method exception -", ex.ToString());
-                return StatusCode(500, "Internal server error");
+
+                _logger.LogInformation("Calling post method");
+                var res = Post();
+
+                _logger.LogInformation("Post method finished");
+                isLogCreated = true;
+                return Ok(res);
             }
         }
 
@@ -449,8 +444,6 @@ namespace CitroenAPI.Controllers
                 }
 
 
-
-
                 if (data.consents.Count > 0)
                 {
                     foreach (var consent in data.consents)
@@ -468,8 +461,6 @@ namespace CitroenAPI.Controllers
                 {
                     consents = "";
                 }
-
-             
                 
                 try
                 {
@@ -511,9 +502,9 @@ namespace CitroenAPI.Controllers
                 var request = new HttpRequestMessage(HttpMethod.Post, url);
 
                 request.Headers.Add("Cookie", "BrowserId=asdasdasdasdasda");
-               // var response = await client.SendAsync(request);
-               // _logger.LogInformation("Lead response: " + response.StatusCode);
-               // response.EnsureSuccessStatusCode();
+                var response = await client.SendAsync(request);
+                _logger.LogInformation("Lead response: " + response.StatusCode);
+                response.EnsureSuccessStatusCode();
 
                 sl.GitId = data.gitId;
                 sl.Status = 200;
