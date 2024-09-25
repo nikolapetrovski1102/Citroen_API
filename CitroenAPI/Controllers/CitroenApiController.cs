@@ -17,6 +17,7 @@ using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Utilities;
 using Microsoft.VisualBasic;
 using Microsoft.AspNetCore.Components;
+using Microsoft.EntityFrameworkCore;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -46,8 +47,13 @@ namespace CitroenAPI.Controllers
             private readonly Emailer _emailer;
             private readonly CancellationTokenSource _cts = new CancellationTokenSource();
             private readonly int dateMinus = -2;
+            StatusLeads sl;
+            Logs logs;
+    
 
-            public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger, IConfiguration configuration)
+
+
+        public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger, IConfiguration configuration)
             {
                 _isRunningInstance = new IsRunningInstance();
                 lock (logCreationLock)
@@ -83,6 +89,9 @@ namespace CitroenAPI.Controllers
                 dateMinus = int.Parse(_configuration["dateMinus"]);
                 _emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
 
+                sl = new StatusLeads();
+                logs = new Logs();
+
                 _logger.LogInformation("Constructor was executed");
 
                 // Log user profile info
@@ -95,110 +104,103 @@ namespace CitroenAPI.Controllers
 
 
         [HttpGet]
-            private string Get()
+        private async Task<string > Get()
+        {
+            Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+
+            try
             {
-                Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+                _logger.LogInformation("--------------------------------------------------------------------------------");
+                _logger.LogInformation($"{nameof(Get)}");
 
-                try
+                string certificateFilePath = @".\certificate\MZPDFMAP.cer";
+                string certificatePassword = @".\certificate\MZPDFMAP.pk";
+
+                certificateFilePath = certificateFilePath.Replace(".\\", "");
+                certificatePassword = certificatePassword.Replace(".\\", "");
+
+                string currentDirectory = Environment.CurrentDirectory;
+
+                absolutePath = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificateFilePath);
+                absolutePathKEY = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificatePassword);
+
+                // Check if files exist and log if not
+                if (!System.IO.File.Exists(absolutePath))
                 {
-                    _logger.LogInformation("--------------------------------------------------------------------------------");
-                    _logger.LogInformation($"{nameof(Get)}");
+                    throw new FileNotFoundException("Certificate file not found", absolutePath);
+                }
 
-                    string certificateFilePath = @".\certificate\MZPDFMAP.cer";
-                    string certificatePassword = @".\certificate\MZPDFMAP.pk";
-
-                    certificateFilePath = certificateFilePath.Replace(".\\", "");
-                    certificatePassword = certificatePassword.Replace(".\\", "");
-
-                    string currentDirectory = Environment.CurrentDirectory;
-
-                    absolutePath = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificateFilePath);
-                    absolutePathKEY = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, certificatePassword);
-
-                    // Check if files exist and log if not
-                    if (!System.IO.File.Exists(absolutePath))
-                    {
-                        throw new FileNotFoundException("Certificate file not found", absolutePath);
-                    }
-
-                    if (!System.IO.File.Exists(absolutePathKEY))
-                    {
-                        throw new FileNotFoundException("Certificate key file not found", absolutePathKEY);
-                    }
-
-                    clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
-                    _logger.LogInformation("Certificates passed");
-
-                    var handler = new HttpClientHandler();
-                    handler.ClientCertificates.Add(clientCertificate);
-
-                    var loggingHandler = new HttpLoggingHandler(handler);
-                    var client = new HttpClient(loggingHandler);
-
-                    var requestUri = "https://api-secure.forms.awsmpsa.com/oauth/v2/token?client_id=5f7f179e7714a1005d204b43_2w88uv9394aok4g8gs0ccc4w4gwsskowck0gs0oo0sggw0kog0&client_secret=619ffmx8sn0g8ossso44wwok8scgoww00s8sogkw8w08cgc0wg&grant_type=password&username=ACMKPR&password=N9zTQ6v1";
-                    var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
-                    client.DefaultRequestHeaders.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
-
-                    _logger.LogInformation("Created client and handler");
-                    var response = client.Send(request);
-                    _logger.LogInformation($"Response: {response}");
-                    response.EnsureSuccessStatusCode();
-
-                    string text = response.Content.ReadAsStringAsync().Result;
-                    TokenAuth tokenObject = new TokenAuth();
-                try
+                if (!System.IO.File.Exists(absolutePathKEY))
                 {
-                    tokenObject = JsonConvert.DeserializeObject<TokenAuth>(text);
+                    throw new FileNotFoundException("Certificate key file not found", absolutePathKEY);
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError("File not found: " + ex.Message);
-                    emailer.SendEmail("Citroen Info - File not found", ex.ToString());
-                    return "Error: " + ex.Message;
-                }
-                    return tokenObject.access_token;
-                }
-                catch (FileNotFoundException fileEx)
-                {
-                    _logger.LogError("File not found: " + fileEx.Message);
-                    emailer.SendEmail("Citroen Info - File not found", fileEx.ToString());
-                    return "Error: " + fileEx.Message;
-                }
-                catch (UnauthorizedAccessException authEx)
-                {
-                    _logger.LogError("Unauthorized access: " + authEx.Message);
-                    emailer.SendEmail("Citroen Info - Unauthorized access", authEx.ToString());
-                    return "Error: " + authEx.Message;
-                }
-                catch (Exception ex)
-                {
-                    emailer.SendEmail("Citroen Info - Get Method exception", ex.ToString());
-                    _logger.LogError("Error was happening at get method " + ex.Message);
-                    return "Error: " + ex.Message + " looking folder for: " + absolutePath;
-                }
-            }
 
-            private X509Certificate2 GetCert(string certPath, string keyPath)
+                clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
+                _logger.LogInformation("Certificates passed");
+
+                var handler = new HttpClientHandler();
+                handler.ClientCertificates.Add(clientCertificate);
+
+                var loggingHandler = new HttpLoggingHandler(handler);
+                var client = new HttpClient(loggingHandler);
+
+                var requestUri = "https://api-secure.forms.awsmpsa.com/oauth/v2/token?client_id=5f7f179e7714a1005d204b43_2w88uv9394aok4g8gs0ccc4w4gwsskowck0gs0oo0sggw0kog0&client_secret=619ffmx8sn0g8ossso44wwok8scgoww00s8sogkw8w08cgc0wg&grant_type=password&username=ACMKPR&password=N9zTQ6v1";
+                var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+                client.DefaultRequestHeaders.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
+
+                _logger.LogInformation("Created client and handler");
+                var response = await client.SendAsync(request);
+                _logger.LogInformation($"Response: {response}");
+                response.EnsureSuccessStatusCode();
+
+                string text = response.Content.ReadAsStringAsync().Result;
+                TokenAuth tokenObject = new TokenAuth();
+            try
             {
-                X509Certificate2 cert = new X509Certificate2(certPath);
-                StreamReader reader = new StreamReader(keyPath);
-                PemReader pemReader = new PemReader(reader);
-                RsaPrivateCrtKeyParameters keyPair = (RsaPrivateCrtKeyParameters)pemReader.ReadObject();
-                RSA rsa = DotNetUtilities.ToRSA(keyPair);
-                cert = cert.CopyWithPrivateKey(rsa);
-                return new X509Certificate2(cert.Export(X509ContentType.Pfx));
+                tokenObject = JsonConvert.DeserializeObject<TokenAuth>(text);
             }
+            catch (Exception ex)
+            {
+                _logger.LogError("File not found: " + ex.Message);
+                emailer.SendEmail("Citroen Info - File not found", ex.ToString());
+                return "Error: " + ex.Message;
+            }
+                return tokenObject.access_token;
+            }
+            catch (FileNotFoundException fileEx)
+            {
+                _logger.LogError("File not found: " + fileEx.Message);
+                emailer.SendEmail("Citroen Info - File not found", fileEx.ToString());
+                return "Error: " + fileEx.Message;
+            }
+            catch (UnauthorizedAccessException authEx)
+            {
+                _logger.LogError("Unauthorized access: " + authEx.Message);
+                emailer.SendEmail("Citroen Info - Unauthorized access", authEx.ToString());
+                return "Error: " + authEx.Message;
+            }
+            catch (Exception ex)
+            {
+                emailer.SendEmail("Citroen Info - Get Method exception", ex.ToString());
+                _logger.LogError("Error was happening at get method " + ex.Message);
+                return "Error: " + ex.Message + " looking folder for: " + absolutePath;
+            }
+        }
 
-            // Other methods (Post, PostAsync, AddLog, etc.) remain unchanged
-        
-    
+        private X509Certificate2 GetCert(string certPath, string keyPath)
+        {
+            X509Certificate2 cert = new X509Certificate2(certPath);
+            StreamReader reader = new StreamReader(keyPath);
+            PemReader pemReader = new PemReader(reader);
+            RsaPrivateCrtKeyParameters keyPair = (RsaPrivateCrtKeyParameters)pemReader.ReadObject();
+            RSA rsa = DotNetUtilities.ToRSA(keyPair);
+            cert = cert.CopyWithPrivateKey(rsa);
+            return new X509Certificate2(cert.Export(X509ContentType.Pfx));
+        }
 
 
-
-
-
-    // POST api/<ValuesController>
-    [HttpPost]
+        // POST api/<ValuesController>
+        [HttpPost]
         private async Task<IActionResult> Post()
         {
             lock (postLock)
@@ -215,7 +217,7 @@ namespace CitroenAPI.Controllers
             _logger.LogInformation("--------------------------------------------------------------------------------");
 
             var handler = new HttpClientHandler();
-            var resp = Get();
+            var resp = Get().Result;
             var clientCertificate = GetCert(absolutePath.ToString(), absolutePathKEY.ToString());
             handler.ClientCertificates.Add(clientCertificate);
 
@@ -268,7 +270,6 @@ namespace CitroenAPI.Controllers
                         return StatusCode(500, "Error processing response data.");
                     }
 
-                    Logs logs = new Logs();
                     _logger.LogInformation("Check if there are any changes");
                     _logger.LogInformation(responseData?.message?.Count.ToString());
                     _logger.LogInformation(callLogs?.message?.Count.ToString());
@@ -373,6 +374,7 @@ namespace CitroenAPI.Controllers
             DateTime now = DateTime.Now;
             if (gitIdLogs == null)
                 gitIdLogs = _context.Logs
+                    .AsNoTracking()
                     .Where(model => model.CreatedDate >= twoDaysAgoStart && model.CreatedDate <= now)
                     .ToList();
 
@@ -401,7 +403,6 @@ namespace CitroenAPI.Controllers
         {
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Started sending leads to SF");
-            StatusLeads sl = new StatusLeads();
 
             try
             {
