@@ -24,87 +24,84 @@ using Microsoft.EntityFrameworkCore;
 namespace CitroenAPI.Controllers
 {
 
- 
+
     [Microsoft.AspNetCore.Components.Route("api/[controller]")]
     [ApiController]
 
     public class CitroenApiController : ControllerBase
-        {
-            private static bool isLogCreated = false;
-            private static readonly object logCreationLock = new object();
-            IConfiguration configuration = (new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json").Build());
-            private readonly object postLock = new object();
-            private readonly CitroenDbContext _context;
-            private readonly IWebHostEnvironment _hostingEnvironment;
-            private static string absolutePath;
-            private static string absolutePathKEY;
-            int callLimit = 0;
-            public IConfiguration _configuration { get; set; }
-            private EmailConfiguration emailConfig;
-            static RootObject callLogs = new RootObject();
-            private readonly ILogger<CitroenApiController> _logger;
-            private IsRunningInstance _isRunningInstance;
-            private readonly Emailer _emailer;
-            private readonly CancellationTokenSource _cts = new CancellationTokenSource();
-            private readonly int dateMinus = -2;
-            StatusLeads sl;
-            Logs logs;
-    
+    {
+        private static bool isLogCreated = false;
+        private static readonly object logCreationLock = new object();
+        IConfiguration configuration = (new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json").Build());
+        private readonly object postLock = new object();
+        private readonly CitroenDbContext _context;
+        private readonly IWebHostEnvironment _hostingEnvironment;
+        private static string absolutePath;
+        private static string absolutePathKEY;
+        int callLimit = 0;
+        public IConfiguration _configuration { get; set; }
+        private EmailConfiguration emailConfig;
+        static RootObject callLogs = new RootObject();
+        private readonly ILogger<CitroenApiController> _logger;
+        private IsRunningInstance _isRunningInstance;
+        private readonly Emailer _emailer;
+        private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        private readonly int dateMinus = -2;
+        StatusLeads sl;
+        Logs logs;
+
 
 
 
         public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger, IConfiguration configuration)
+        {
+            _isRunningInstance = new IsRunningInstance();
+            lock (logCreationLock)
             {
-                _isRunningInstance = new IsRunningInstance();
-                lock (logCreationLock)
+                if (!isLogCreated)
                 {
-                    if (!isLogCreated)
-                    {
-                        loggerFactory.AddFile(Path.Combine(Directory.GetCurrentDirectory(), "logs"));
-                        isLogCreated = true;
-                    }
+                    loggerFactory.AddFile(Path.Combine(Directory.GetCurrentDirectory(), "logs"));
+                    isLogCreated = true;
                 }
-
-                _context = context;
-                _hostingEnvironment = hostingEnvironment;
-                _logger = logger;
-                _configuration = configuration;
-
-                emailConfig = new EmailConfiguration
-                {
-                    From = _configuration["EmailConfiguration:From"],
-                    UserName = _configuration["EmailConfiguration:Username"],
-                    Password = _configuration["EmailConfiguration:Password"],
-                    SmtpServer = _configuration["EmailConfiguration:SmtpServer"],
-                    Port = int.TryParse(_configuration["EmailConfiguration:Port"], out int port) ? port : 25
-                };
-
-                if (string.IsNullOrEmpty(emailConfig.From) || string.IsNullOrEmpty(emailConfig.UserName) ||
-                    string.IsNullOrEmpty(emailConfig.Password) || string.IsNullOrEmpty(emailConfig.SmtpServer))
-                {
-                    _logger.LogError("Email configuration is missing required values.");
-                    throw new InvalidOperationException("Email configuration is not valid.");
-                }
-
-                dateMinus = int.Parse(_configuration["dateMinus"]);
-                _emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
-
-                sl = new StatusLeads();
-                logs = new Logs();
-
-                _logger.LogInformation("Constructor was executed");
-
-                // Log user profile info
-                _logger.LogInformation("User: " + Environment.UserName);
-                _logger.LogInformation("User profile path: " + Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
             }
 
-            HttpListener.ExtendedProtectionSelector ExtendedProtectionSelector { get; set; }
-            static X509Certificate2 clientCertificate;
+            _context = context;
+            _hostingEnvironment = hostingEnvironment;
+            _logger = logger;
+            _configuration = configuration;
+
+            emailConfig = new EmailConfiguration
+            {
+                From = _configuration["EmailConfiguration:From"],
+                UserName = _configuration["EmailConfiguration:Username"],
+                Password = _configuration["EmailConfiguration:Password"],
+                SmtpServer = _configuration["EmailConfiguration:SmtpServer"],
+                Port = int.TryParse(_configuration["EmailConfiguration:Port"], out int port) ? port : 25
+            };
+
+            if (string.IsNullOrEmpty(emailConfig.From) || string.IsNullOrEmpty(emailConfig.UserName) ||
+                string.IsNullOrEmpty(emailConfig.Password) || string.IsNullOrEmpty(emailConfig.SmtpServer))
+            {
+                _logger.LogError("Email configuration is missing required values.");
+                throw new InvalidOperationException("Email configuration is not valid.");
+            }
+
+            dateMinus = int.Parse(_configuration["dateMinus"]);
+            _emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
+
+            _logger.LogInformation("Constructor was executed");
+
+            // Log user profile info
+            _logger.LogInformation("User: " + Environment.UserName);
+            _logger.LogInformation("User profile path: " + Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        }
+
+        HttpListener.ExtendedProtectionSelector ExtendedProtectionSelector { get; set; }
+        static X509Certificate2 clientCertificate;
 
 
         [HttpGet]
-        private async Task<string > Get()
+        private async Task<string> Get()
         {
             Emailer emailer = new Emailer(emailConfig.SmtpServer, emailConfig.Port, emailConfig.UserName, emailConfig.Password);
 
@@ -155,16 +152,16 @@ namespace CitroenAPI.Controllers
 
                 string text = response.Content.ReadAsStringAsync().Result;
                 TokenAuth tokenObject = new TokenAuth();
-            try
-            {
-                tokenObject = JsonConvert.DeserializeObject<TokenAuth>(text);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("File not found: " + ex.Message);
-                emailer.SendEmail("Citroen Info - File not found", ex.ToString());
-                return "Error: " + ex.Message;
-            }
+                try
+                {
+                    tokenObject = JsonConvert.DeserializeObject<TokenAuth>(text);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError("File not found: " + ex.Message);
+                    emailer.SendEmail("Citroen Info - File not found", ex.ToString());
+                    return "Error: " + ex.Message;
+                }
                 return tokenObject.access_token;
             }
             catch (FileNotFoundException fileEx)
@@ -245,9 +242,9 @@ namespace CitroenAPI.Controllers
                         Content = content
                     };
                     request.Headers.Add("User-Agent", "MiddleApiCitroenMacedoniaPullData");
-                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", resp.Trim().ToString()) ;
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", resp.Trim().ToString());
 
-                    var response = httpClient.Send(request);
+                    var response = await httpClient.SendAsync(request);
                     _logger.LogInformation("Post method Response: " + response.StatusCode);
                     string responseBody = await response.Content.ReadAsStringAsync();
 
@@ -278,12 +275,13 @@ namespace CitroenAPI.Controllers
                     if ((responseData?.message?.Count != callLogs?.message?.Count || callLogs?.message == null)
                         && (callLogs?.message == null || !responseData.message[0].gitId.Equals(callLogs.message[0]?.gitId)))
                     {
+                        logs = new Logs();
                         foreach (Message msg in responseData.message)
                         {
-                            if (msg.gitId == "MTcyNzE1OTAwNFZXOTFZ")
-                            {
-                                Console.WriteLine();
-                            }
+                            //if (msg.gitId == "MTcyNzE1OTAwNFZXOTFZ")
+                            //{
+                            //    Console.WriteLine();
+                            //}
                             logs.GitId = msg.gitId;
                             logs.DispatchDate = msg.dispatchDate;
                             logs.CreatedDate = DateTime.Now;
@@ -291,8 +289,8 @@ namespace CitroenAPI.Controllers
                             bool inserted = await AddLog(logs);
                             if (inserted)
                             {
-                               msg.leadData.gitId = msg.gitId;
-                              await PostAsync(msg.leadData, msg.preferredContactMethod, logs);
+                                msg.leadData.gitId = msg.gitId;
+                                await PostAsync(msg.leadData, msg.preferredContactMethod, logs);
                             }
                         }
                     }
@@ -312,6 +310,10 @@ namespace CitroenAPI.Controllers
                 {
                     _logger.LogInformation("Post method was canceled");
                     return StatusCode(500, "Post method was canceled");
+                }
+                catch(Exception ex)
+                {
+                    return StatusCode(500, "Post method was canceled"+ex.Message);
                 }
                 finally
                 {
@@ -340,14 +342,14 @@ namespace CitroenAPI.Controllers
 
                 _logger.LogInformation("Post method finished");
                 isLogCreated = true;
-                return Ok(res);
+                return Ok();
             }
         }
 
         [HttpPost("AddLog")]
-        private async Task<bool> AddLog(Logs logModel)
+        private async Task<bool> AddLog(Logs logs)
         {
-            if (CheckLogs(logModel))
+            if (CheckLogs(logs))
             {
                 return true;
 
@@ -363,43 +365,18 @@ namespace CitroenAPI.Controllers
 
         bool CheckLogs(Logs logsModel)
         {
-
             if (logsModel == null)
             {
                 return false;
             }
 
-            DateTime twoDaysAgoStart = DateTime.Now.AddDays(dateMinus - 1).Date;
-
-            DateTime now = DateTime.Now;
-            if (gitIdLogs == null)
-                gitIdLogs = _context.Logs
-                    .AsNoTracking()
-                    .Where(model => model.CreatedDate >= twoDaysAgoStart && model.CreatedDate <= now)
-                    .ToList();
-
-            bool res = true;
-
-            if (gitIdLogs.Count == 0) return res;
-
-            foreach (Logs log in gitIdLogs)
-            {
-                if (logsModel.GitId.Equals(log.GitId))
-                {
-                    return false;
-                }
-                else
-                {
-                    res = true;
-                }
-            }
-
-            return res;
-
+            return !_context.Logs
+                .AsNoTracking()
+                .Any(log => log.GitId == logsModel.GitId);
         }
 
         [HttpPost("SalesForce")]
-        private async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered, Logs logModel)
+        private async Task PostAsync(LeadData data, PreferredContactMethodEnum prefered, Logs logs)
         {
             _logger.LogInformation("--------------------------------------------------------------------------------");
             _logger.LogInformation("Started sending leads to SF");
@@ -438,7 +415,6 @@ namespace CitroenAPI.Controllers
                         model = "Model_" + model;
                     }
 
-
                     Enum.TryParse(model, out carenum);
                     model = Enums.GetEnumValue(carenum).ToString();
                 }
@@ -461,19 +437,19 @@ namespace CitroenAPI.Controllers
                 {
                     consents = "";
                 }
-                
+
                 try
                 {
-                    logModel.Email = data.customer.email;
-                    logModel.Phone = mobilePhone;
-                    logModel.Name = data.customer.firstname;
-                    logModel.FamilyName = data.customer.lastname;
-                    logModel.Comments = commetns;
-                    logModel.Consents = consents;
-                    logModel.Model = model;
-                    logModel.Dealer = dealers;
-                    logModel.RequestType = requestType;
-                    _context.Logs.Add(logModel);
+                    logs.Email = data.customer.email;
+                    logs.Phone = mobilePhone;
+                    logs.Name = data.customer.firstname;
+                    logs.FamilyName = data.customer.lastname;
+                    logs.Comments = commetns;
+                    logs.Consents = consents;
+                    logs.Model = model;
+                    logs.Dealer = dealers;
+                    logs.RequestType = requestType;
+                    _context.Logs.Add(logs);
 
                     await _context.SaveChangesAsync();
                 }
@@ -506,6 +482,8 @@ namespace CitroenAPI.Controllers
                 _logger.LogInformation("Lead response: " + response.StatusCode);
                 response.EnsureSuccessStatusCode();
 
+                sl = new StatusLeads();
+
                 sl.GitId = data.gitId;
                 sl.Status = 200;
                 sl.SentDate = DateTime.Now;
@@ -523,13 +501,13 @@ namespace CitroenAPI.Controllers
                 if (ex.InnerException != null && callLimit < 3 && ex.InnerException.Message.Contains("No such host is known."))
                 {
                     callLimit++;
-                    PostAsync(data, prefered, logModel);
+                    PostAsync(data, prefered, logs);
                 }
 
                 sl.GitId = data.gitId;
                 sl.Status = 500;
                 sl.SentDate = DateTime.Now;
-           
+
 
                 _context.StatusLeads.Add(sl);
 
