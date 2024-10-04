@@ -369,10 +369,18 @@ namespace CitroenAPI.Controllers
             {
                 return false;
             }
-
-            return !_context.Logs
-                .AsNoTracking()
-                .Any(log => log.GitId == logsModel.GitId);
+            if (_context.Database.CanConnect())
+            {
+                _logger.LogInformation(" Konektirana baza");
+                return !_context.Logs
+                    .AsNoTracking()
+                    .Any(log => log.GitId == logsModel.GitId);
+            }
+            else
+            {
+                _logger.LogInformation("NE Konektirana baza");
+                return false;
+            }
         }
 
         [HttpPost("SalesForce")]
@@ -449,9 +457,17 @@ namespace CitroenAPI.Controllers
                     logs.Model = model;
                     logs.Dealer = dealers;
                     logs.RequestType = requestType;
-                    _context.Logs.Add(logs);
+                    if (_context.Database.CanConnect())
+                    {
+                        _logger.LogInformation("Konektirana baza");
+                        _context.Logs.Add(logs);
 
-                    await _context.SaveChangesAsync();
+                        await _context.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        _logger.LogInformation("NE Konektirana baza");
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -487,9 +503,17 @@ namespace CitroenAPI.Controllers
                 sl.GitId = data.gitId;
                 sl.Status = 200;
                 sl.SentDate = DateTime.Now;
-                _context.StatusLeads.Add(sl);
+                if (_context.Database.CanConnect())
+                {
+                    _logger.LogInformation("Konektirana baza");
+                    _context.StatusLeads.Add(sl);
 
-                _context.SaveChanges();
+                    _context.SaveChanges();
+                }
+                else
+                {
+                    _logger.LogInformation("NE Konektirana baza");
+                }
                 _logger.LogInformation("Lead logs saved");
                 callLimit = 0;
 
@@ -508,10 +532,17 @@ namespace CitroenAPI.Controllers
                 sl.Status = 500;
                 sl.SentDate = DateTime.Now;
 
+                if (_context.Database.CanConnect())
+                {
+                    _logger.LogInformation(" Konektirana baza");
+                    _context.StatusLeads.Add(sl);
 
-                _context.StatusLeads.Add(sl);
-
-                _context.SaveChanges();
+                    _context.SaveChanges();
+                }
+                else
+                {
+                    _logger.LogInformation("NE Konektirana baza");
+                }
 
             }
         }
