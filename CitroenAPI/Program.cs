@@ -11,8 +11,10 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<CitroenDbContext>(options =>
-    options.UseSqlServer(configuration["ConnectionStrings:ConnectionString"].ToString()), ServiceLifetime.Singleton);
-
+{
+    options.UseSqlServer(configuration["ConnectionStrings:ConnectionString"].ToString());
+    options.EnableSensitiveDataLogging();
+});
 
 //builder.Services.AddSingleton<IHostedService, SchadulerService>();
 // Register the log cleanup service
