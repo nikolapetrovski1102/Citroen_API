@@ -10,11 +10,15 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddScoped<IDbContextFactory, DbContextFactory>();
 builder.Services.AddDbContext<CitroenDbContext>(options =>
 {
-    options.UseSqlServer(configuration["ConnectionStrings:ConnectionString"].ToString());
+    options.UseSqlServer(configuration["ConnectionStrings:ConnectionString"]);
     options.EnableSensitiveDataLogging();
 });
+
+//builder.Services.AddDbContext<CitroenDbContext>(options =>
+//    options.UseSqlServer(configuration["ConnectionStrings:ConnectionString"].ToString()));
 
 //builder.Services.AddSingleton<IHostedService, SchadulerService>();
 // Register the log cleanup service

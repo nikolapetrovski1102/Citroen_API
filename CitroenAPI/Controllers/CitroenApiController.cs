@@ -18,6 +18,7 @@ using Org.BouncyCastle.Utilities;
 using Microsoft.VisualBasic;
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -34,7 +35,7 @@ namespace CitroenAPI.Controllers
         private static readonly object logCreationLock = new object();
         IConfiguration configuration = (new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json").Build());
         private readonly object postLock = new object();
-        private readonly CitroenDbContext _context;
+        private readonly IDbContextFactory _contextFactory;
         private readonly IWebHostEnvironment _hostingEnvironment;
         private static string absolutePath;
         private static string absolutePathKEY;
@@ -53,7 +54,7 @@ namespace CitroenAPI.Controllers
 
 
 
-        public CitroenApiController(CitroenDbContext context, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger, IConfiguration configuration)
+        public CitroenApiController(IDbContextFactory contextFactory, IWebHostEnvironment hostingEnvironment, ILoggerFactory loggerFactory, ILogger<CitroenApiController> logger, IConfiguration configuration)
         {
             _isRunningInstance = new IsRunningInstance();
             lock (logCreationLock)
@@ -65,7 +66,7 @@ namespace CitroenAPI.Controllers
                 }
             }
 
-            _context = context;
+            _contextFactory = contextFactory;
             _hostingEnvironment = hostingEnvironment;
             _logger = logger;
             _configuration = configuration;
@@ -346,39 +347,40 @@ namespace CitroenAPI.Controllers
             }
         }
 
-        [HttpPost("AddLog")]
         private async Task<bool> AddLog(Logs logs)
         {
-            if (CheckLogs(logs))
+            using (var _context = _contextFactory.CreateDbContext())
             {
-                return true;
-
+                if (CheckLogs(logs, _context))
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
             }
-            else
-            {
-                return false;
-            }
-
         }
 
-        private List<Logs> gitIdLogs;
+        //private List<Logs> gitIdLogs;
 
-        bool CheckLogs(Logs logsModel)
+        private bool CheckLogs(Logs logsModel, CitroenDbContext _context)
         {
             if (logsModel == null)
             {
                 return false;
             }
+
             if (_context.Database.CanConnect())
             {
-                _logger.LogInformation(" Konektirana baza");
+                _logger.LogInformation("Database connected");
                 return !_context.Logs
                     .AsNoTracking()
                     .Any(log => log.GitId == logsModel.GitId);
             }
             else
             {
-                _logger.LogInformation("NE Konektirana baza");
+                _logger.LogInformation("Database not connected");
                 return false;
             }
         }
@@ -445,112 +447,112 @@ namespace CitroenAPI.Controllers
                 {
                     consents = "";
                 }
+                    using (var _context = _contextFactory.CreateDbContext())
+                    { 
+                        try
+                        {
+                            logs.Email = data.customer.email;
+                            logs.Phone = mobilePhone;
+                            logs.Name = data.customer.firstname;
+                            logs.FamilyName = data.customer.lastname;
+                            logs.Comments = commetns;
+                            logs.Consents = consents;
+                            logs.Model = model;
+                            logs.Dealer = dealers;
+                            logs.RequestType = requestType;
+                            if (_context.Database.CanConnect())
+                            {
+                                _logger.LogInformation("Konektirana baza");
+                                _context.Logs.Add(logs);
 
-                try
-                {
-                    logs.Email = data.customer.email;
-                    logs.Phone = mobilePhone;
-                    logs.Name = data.customer.firstname;
-                    logs.FamilyName = data.customer.lastname;
-                    logs.Comments = commetns;
-                    logs.Consents = consents;
-                    logs.Model = model;
-                    logs.Dealer = dealers;
-                    logs.RequestType = requestType;
+                                await _context.SaveChangesAsync();
+                            }
+                            else
+                            {
+                                _logger.LogInformation("NE Konektirana baza");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _emailer.SendEmail("Citroen Info - Post Method eception -", ex.ToString());
+                            _logger.LogInformation("Error in AddLog " + ex.Message);
+                        }
+
+                    string url = "https://webto.salesforce.com/servlet/servlet.WebToLead?eencoding=UTF-8&orgId=00D7Q000004shjs" +
+                        "&salutation=" + salutation +
+                        "&first_name=" + data.customer.firstname +
+                        "&last_name=" + data.customer.lastname +
+                        "&email=" + data.customer.email +
+                        "&mobile=" + mobilePhone +
+                        "&submit=submit&oid=00D7Q000004shjs&retURL=" +
+                        "&00N7Q00000KWlx2=" + requestType +
+                        "&lead_source=www.citroen.com.mk" +
+                        "&description=" + commetns +
+                        "&00N7Q00000KWlx7=" + consents +
+                        "&00N7Q00000KWlxC=" + model +
+                        "&00N7Q00000KWlxH=" + dealers;
+
+                    _logger.LogInformation("Lead URL: " + url);
+                    var client = new HttpClient();
+                    var request = new HttpRequestMessage(HttpMethod.Post, url);
+
+                    request.Headers.Add("Cookie", "BrowserId=asdasdasdasdasda");
+                    var response = await client.SendAsync(request);
+                    _logger.LogInformation("Lead response: " + response.StatusCode);
+                    response.EnsureSuccessStatusCode();
+
+                    sl = new StatusLeads();
+
+                    sl.GitId = data.gitId;
+                    sl.Status = 200;
+                    sl.SentDate = DateTime.Now;
                     if (_context.Database.CanConnect())
                     {
                         _logger.LogInformation("Konektirana baza");
-                        _context.Logs.Add(logs);
+                        _context.StatusLeads.Add(sl);
 
-                        await _context.SaveChangesAsync();
+                        _context.SaveChanges();
                     }
                     else
                     {
                         _logger.LogInformation("NE Konektirana baza");
                     }
+                    _logger.LogInformation("Lead logs saved");
+                    callLimit = 0;
+
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _emailer.SendEmail("Citroen Info - Post Method eception -", ex.ToString());
-                    _logger.LogInformation("Error in AddLog " + ex.Message);
+                    _emailer.SendEmail("Citroen Info - Post SalesForce Method eception -", ex.ToString());
+                    _logger.LogInformation("Lead to sf method exception: " + ex.Message);
+                    if (ex.InnerException != null && callLimit < 3 && ex.InnerException.Message.Contains("No such host is known."))
+                    {
+                        callLimit++;
+                        PostAsync(data, prefered, logs);
+                    }
+
+                    sl.GitId = data.gitId;
+                    sl.Status = 500;
+                    sl.SentDate = DateTime.Now;
+
+                    using (var _context = _contextFactory.CreateDbContext())
+                    {
+                        if (_context.Database.CanConnect())
+                        {
+                            _logger.LogInformation(" Konektirana baza");
+                            _context.StatusLeads.Add(sl);
+
+                            _context.SaveChanges();
+                        }
+                        else
+                        {
+                            _logger.LogInformation("NE Konektirana baza");
+                        }
+                    }
                 }
-
-                string url = "https://webto.salesforce.com/servlet/servlet.WebToLead?eencoding=UTF-8&orgId=00D7Q000004shjs" +
-                    "&salutation=" + salutation +
-                    "&first_name=" + data.customer.firstname +
-                    "&last_name=" + data.customer.lastname +
-                    "&email=" + data.customer.email +
-                    "&mobile=" + mobilePhone +
-                    "&submit=submit&oid=00D7Q000004shjs&retURL=" +
-                    "&00N7Q00000KWlx2=" + requestType +
-                    "&lead_source=www.citroen.com.mk" +
-                    "&description=" + commetns +
-                    "&00N7Q00000KWlx7=" + consents +
-                    "&00N7Q00000KWlxC=" + model +
-                    "&00N7Q00000KWlxH=" + dealers;
-
-                _logger.LogInformation("Lead URL: " + url);
-                var client = new HttpClient();
-                var request = new HttpRequestMessage(HttpMethod.Post, url);
-
-                request.Headers.Add("Cookie", "BrowserId=asdasdasdasdasda");
-                var response = await client.SendAsync(request);
-                _logger.LogInformation("Lead response: " + response.StatusCode);
-                response.EnsureSuccessStatusCode();
-
-                sl = new StatusLeads();
-
-                sl.GitId = data.gitId;
-                sl.Status = 200;
-                sl.SentDate = DateTime.Now;
-                if (_context.Database.CanConnect())
-                {
-                    _logger.LogInformation("Konektirana baza");
-                    _context.StatusLeads.Add(sl);
-
-                    _context.SaveChanges();
                 }
-                else
-                {
-                    _logger.LogInformation("NE Konektirana baza");
-                }
-                _logger.LogInformation("Lead logs saved");
-                callLimit = 0;
-
-            }
-            catch (Exception ex)
-            {
-                _emailer.SendEmail("Citroen Info - Post SalesForce Method eception -", ex.ToString());
-                _logger.LogInformation("Lead to sf method exception: " + ex.Message);
-                if (ex.InnerException != null && callLimit < 3 && ex.InnerException.Message.Contains("No such host is known."))
-                {
-                    callLimit++;
-                    PostAsync(data, prefered, logs);
-                }
-
-                sl.GitId = data.gitId;
-                sl.Status = 500;
-                sl.SentDate = DateTime.Now;
-
-                if (_context.Database.CanConnect())
-                {
-                    _logger.LogInformation(" Konektirana baza");
-                    _context.StatusLeads.Add(sl);
-
-                    _context.SaveChanges();
-                }
-                else
-                {
-                    _logger.LogInformation("NE Konektirana baza");
-                }
-
-            }
         }
-
-
-
 
     }
 
-
-}
