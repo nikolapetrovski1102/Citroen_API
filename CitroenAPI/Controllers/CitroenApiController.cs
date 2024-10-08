@@ -284,7 +284,14 @@ namespace CitroenAPI.Controllers
                             //    Console.WriteLine();
                             //}
                             logs.GitId = msg.gitId;
-                            logs.DispatchDate = msg.dispatchDate;
+                            if (msg.dispatchDate < new DateTime(1753, 1, 1))
+                            {
+                                logs.DispatchDate = DateTime.Now;
+                            }
+                            else
+                            {
+                                logs.DispatchDate = DateTime.Parse(msg.dispatchDate.ToString());
+                            }
                             logs.CreatedDate = DateTime.Now;
 
                             bool inserted = await AddLog(logs);
@@ -465,6 +472,8 @@ namespace CitroenAPI.Controllers
                                 _logger.LogInformation("Konektirana baza");
                                 _context.Logs.Add(logs);
 
+                                _logger.LogInformation(JsonConvert.SerializeObject(logs));
+
                                 await _context.SaveChangesAsync();
                             }
                             else
@@ -509,6 +518,9 @@ namespace CitroenAPI.Controllers
                     if (_context.Database.CanConnect())
                     {
                         _logger.LogInformation("Konektirana baza");
+
+                        _logger.LogInformation(JsonConvert.SerializeObject(sl));
+
                         _context.StatusLeads.Add(sl);
 
                         _context.SaveChanges();
@@ -517,8 +529,8 @@ namespace CitroenAPI.Controllers
                     {
                         _logger.LogInformation("NE Konektirana baza");
                     }
-                    _logger.LogInformation("Lead logs saved");
-                    callLimit = 0;
+                        _logger.LogInformation("Lead logs saved");
+                        callLimit = 0;
 
                     }
                 }
